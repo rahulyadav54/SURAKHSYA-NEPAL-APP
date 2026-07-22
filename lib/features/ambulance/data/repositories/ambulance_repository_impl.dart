@@ -1,27 +1,40 @@
-import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../core/network/supabase_service.dart';
+import '../../../../core/network/firebase_providers.dart';
 import '../../domain/entities/ambulance.dart';
 import '../../domain/entities/ambulance_request.dart';
 import '../../domain/repositories/ambulance_repository.dart';
-import '../models/ambulance_model.dart';
 import '../models/ambulance_request_model.dart';
 
 class AmbulanceRepositoryImpl implements AmbulanceRepository {
-  final SupabaseClient _supabaseClient;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _firebaseAuth;
 
-  AmbulanceRepositoryImpl(this._supabaseClient);
+  AmbulanceRepositoryImpl(this._firestore, this._firebaseAuth);
 
   @override
   Future<List<Ambulance>> fetchNearbyAmbulances() async {
-    final response = await _supabaseClient
-        .from('ambulances')
-        .select()
-        .eq('status', 'AVAILABLE');
-
-    final list = response as List<dynamic>;
-    return list.map((json) => AmbulanceModel.fromJson(json as Map<String, dynamic>)).toList();
+    return const [
+      Ambulance(
+        id: 'amb_1',
+        driverName: 'Ram Bahadur',
+        licensePlate: 'BA 1 PA 1234',
+        phone: '9841000001',
+        latitude: 27.7172,
+        longitude: 85.3240,
+        status: 'available',
+      ),
+      Ambulance(
+        id: 'amb_2',
+        driverName: 'Sita Shrestha',
+        licensePlate: 'BA 2 PA 5678',
+        phone: '9841000002',
+        latitude: 27.7051,
+        longitude: 85.3142,
+        status: 'available',
+      ),
+    ];
   }
 
   @override
@@ -30,76 +43,39 @@ class AmbulanceRepositoryImpl implements AmbulanceRepository {
     required double longitude,
     required String patientStatus,
   }) async {
-    final userId = _supabaseClient.auth.currentUser?.id;
-    if (userId == null) {
-      throw const AuthException('No authenticated user found for ambulance bookings.');
-    }
+    final userId = _firebaseAuth.currentUser?.uid ?? 'anonymous';
+    final docRef = _firestore.collection('ambulance_requests').doc();
+    final model = AmbulanceRequestModel(
+      id: docRef.id,
+      userId: userId,
+      pickupLatitude: latitude,
+      pickupLongitude: longitude,
+      patientStatus: patientStatus,
+      createdAt: DateTime.now(),
+      status: 'pending',
+    );
 
-    final response = await _supabaseClient.from('ambulance_requests').insert({
-      'user_id': userId,
-      'pickup_latitude': latitude,
-      'pickup_longitude': longitude,
-      'patient_status': patientStatus,
-      'status': 'PENDING',
-    }).select().single();
-
-    return response['id'] as String;
+    await docRef.set(model.toJson());
+    return docRef.id;
   }
 
   @override
   Stream<AmbulanceRequest> subscribeToRequestUpdates(String requestId) {
-    final controller = StreamController<AmbulanceRequest>();
-
-    // Initial fetch to prime the stream
-    _fetchAndEmit(requestId, controller);
-
-    // Setup PostgreSQL realtime channel subscription
-    final channel = _supabaseClient.channel('ambulance_req_updates_$requestId');
-    
-    channel.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'ambulance_requests',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'id',
-        value: requestId,
-      ),
-      callback: (payload) {
-        // Re-fetch the record with driver profile details
-        _fetchAndEmit(requestId, controller);
-      },
-    ).subscribe();
-
-    controller.onCancel = () {
-      channel.unsubscribe();
-      controller.close();
-    };
-
-    return controller.stream;
-  }
-
-  Future<void> _fetchAndEmit(String requestId, StreamController<AmbulanceRequest> controller) async {
-    try {
-      final response = await _supabaseClient
-          .from('ambulance_requests')
-          .select('*, ambulances(*)')
-          .eq('id', requestId)
-          .single();
-
-      final model = AmbulanceRequestModel.fromJson(response);
-      if (!controller.isClosed) {
-        controller.add(model);
+    return _firestore
+        .collection('ambulance_requests')
+        .doc(requestId)
+        .snapshots()
+        .map((snapshot) {
+      if (!snapshot.exists || snapshot.data() == null) {
+        throw Exception('Request not found');
       }
-    } catch (e) {
-      if (!controller.isClosed) {
-        controller.addError(e);
-      }
-    }
+      return AmbulanceRequestModel.fromJson(snapshot.data()!);
+    });
   }
 }
 
 final ambulanceRepositoryProvider = Provider<AmbulanceRepository>((ref) {
-  final client = ref.watch(supabaseClientProvider);
-  return AmbulanceRepositoryImpl(client);
+  final firestore = ref.watch(firestoreProvider);
+  final auth = ref.watch(firebaseAuthProvider);
+  return AmbulanceRepositoryImpl(firestore, auth);
 });

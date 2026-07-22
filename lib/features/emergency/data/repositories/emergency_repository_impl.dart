@@ -1,53 +1,51 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../core/network/supabase_service.dart';
+import '../../../../core/network/firebase_providers.dart';
 import '../../domain/entities/emergency_event.dart';
 import '../../domain/repositories/emergency_repository.dart';
 import '../models/emergency_model.dart';
 
 class EmergencyRepositoryImpl implements EmergencyRepository {
-  final SupabaseClient _supabaseClient;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _firebaseAuth;
 
-  EmergencyRepositoryImpl(this._supabaseClient);
+  EmergencyRepositoryImpl(this._firestore, this._firebaseAuth);
 
   @override
   Future<void> triggerSosAlert({required double latitude, required double longitude}) async {
-    final userId = _supabaseClient.auth.currentUser?.id;
-    if (userId == null) {
-      throw const AuthException('No authenticated user found for triggering SOS alerts.');
-    }
-
+    final userId = _firebaseAuth.currentUser?.uid ?? 'anonymous';
+    final docRef = _firestore.collection('emergencies').doc();
     final model = EmergencyModel(
-      id: '',
+      id: docRef.id,
       userId: userId,
       latitude: latitude,
       longitude: longitude,
-      status: 'PENDING',
+      status: 'active',
       createdAt: DateTime.now(),
     );
 
-    await _supabaseClient.from('emergencies').insert(model.toJson());
+    await docRef.set(model.toJson());
   }
 
   @override
   Future<List<EmergencyEvent>> fetchEmergencyHistory() async {
-    final userId = _supabaseClient.auth.currentUser?.id;
-    if (userId == null) {
-      throw const AuthException('No authenticated user found for retrieving emergency histories.');
-    }
+    final userId = _firebaseAuth.currentUser?.uid;
+    if (userId == null) return [];
 
-    final response = await _supabaseClient
-        .from('emergencies')
-        .select()
-        .eq('user_id', userId)
-        .order('created_at', ascending: false);
+    final query = await _firestore
+        .collection('emergencies')
+        .where('userId', isEqualTo: userId)
+        .get();
 
-    final list = response as List<dynamic>;
-    return list.map((json) => EmergencyModel.fromJson(json as Map<String, dynamic>)).toList();
+    return query.docs
+        .map((doc) => EmergencyModel.fromJson(doc.data()))
+        .toList();
   }
 }
 
 final emergencyRepositoryProvider = Provider<EmergencyRepository>((ref) {
-  final client = ref.watch(supabaseClientProvider);
-  return EmergencyRepositoryImpl(client);
+  final firestore = ref.watch(firestoreProvider);
+  final auth = ref.watch(firebaseAuthProvider);
+  return EmergencyRepositoryImpl(firestore, auth);
 });

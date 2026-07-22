@@ -1,15 +1,16 @@
-import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../core/network/supabase_service.dart';
+import '../../../../core/network/firebase_providers.dart';
 import '../../domain/entities/fire_report.dart';
 import '../../domain/repositories/fire_repository.dart';
 import '../models/fire_report_model.dart';
 
 class FireRepositoryImpl implements FireRepository {
-  final SupabaseClient _supabaseClient;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _firebaseAuth;
 
-  FireRepositoryImpl(this._supabaseClient);
+  FireRepositoryImpl(this._firestore, this._firebaseAuth);
 
   @override
   Future<String> reportFire({
@@ -20,76 +21,42 @@ class FireRepositoryImpl implements FireRepository {
     required String description,
     required String aiSeverity,
   }) async {
-    final userId = _supabaseClient.auth.currentUser?.id;
-    if (userId == null) {
-      throw const AuthException('No authenticated user found for submitting fire reports.');
-    }
+    final userId = _firebaseAuth.currentUser?.uid ?? 'anonymous';
+    final docRef = _firestore.collection('fire_reports').doc();
+    final model = FireReportModel(
+      id: docRef.id,
+      userId: userId,
+      latitude: latitude,
+      longitude: longitude,
+      imagePath: imagePath,
+      videoPath: videoPath,
+      description: description,
+      aiPredictedSeverity: aiSeverity,
+      createdAt: DateTime.now(),
+      status: 'dispatched',
+    );
 
-    final response = await _supabaseClient.from('fire_reports').insert({
-      'user_id': userId,
-      'latitude': latitude,
-      'longitude': longitude,
-      'image_path': imagePath,
-      'video_path': videoPath,
-      'description': description,
-      'ai_predicted_severity': aiSeverity,
-      'status': 'REPORTED',
-    }).select().single();
-
-    return response['id'] as String;
+    await docRef.set(model.toJson());
+    return docRef.id;
   }
 
   @override
   Stream<FireReport> subscribeToFireReportUpdates(String reportId) {
-    final controller = StreamController<FireReport>();
-
-    _fetchAndEmit(reportId, controller);
-
-    final channel = _supabaseClient.channel('fire_report_updates_$reportId');
-
-    channel.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'fire_reports',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'id',
-        value: reportId,
-      ),
-      callback: (payload) {
-        _fetchAndEmit(reportId, controller);
-      },
-    ).subscribe();
-
-    controller.onCancel = () {
-      channel.unsubscribe();
-      controller.close();
-    };
-
-    return controller.stream;
-  }
-
-  Future<void> _fetchAndEmit(String reportId, StreamController<FireReport> controller) async {
-    try {
-      final response = await _supabaseClient
-          .from('fire_reports')
-          .select()
-          .eq('id', reportId)
-          .single();
-
-      final model = FireReportModel.fromJson(response);
-      if (!controller.isClosed) {
-        controller.add(model);
+    return _firestore
+        .collection('fire_reports')
+        .doc(reportId)
+        .snapshots()
+        .map((snapshot) {
+      if (!snapshot.exists || snapshot.data() == null) {
+        throw Exception('Report not found');
       }
-    } catch (e) {
-      if (!controller.isClosed) {
-        controller.addError(e);
-      }
-    }
+      return FireReportModel.fromJson(snapshot.data()!);
+    });
   }
 }
 
 final fireRepositoryProvider = Provider<FireRepository>((ref) {
-  final client = ref.watch(supabaseClientProvider);
-  return FireRepositoryImpl(client);
+  final firestore = ref.watch(firestoreProvider);
+  final auth = ref.watch(firebaseAuthProvider);
+  return FireRepositoryImpl(firestore, auth);
 });

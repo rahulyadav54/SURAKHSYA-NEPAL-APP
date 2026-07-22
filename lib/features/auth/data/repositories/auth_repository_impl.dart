@@ -1,119 +1,123 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../core/network/supabase_service.dart';
+import '../../../../core/network/firebase_providers.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../models/user_profile_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  final SupabaseClient _supabaseClient;
+  final fb_auth.FirebaseAuth _firebaseAuth;
+  final FirebaseFirestore _firestore;
   final GoogleSignIn _googleSignIn;
+  String? _verificationId;
 
   AuthRepositoryImpl({
-    required SupabaseClient supabaseClient,
+    required fb_auth.FirebaseAuth firebaseAuth,
+    required FirebaseFirestore firestore,
     GoogleSignIn? googleSignIn,
-  })  : _supabaseClient = supabaseClient,
-        _googleSignIn = googleSignIn ??
-            GoogleSignIn(
-              // Get this from Supabase > Authentication > Providers > Google > Web Client ID
-              // Or from Google Cloud Console > APIs & Services > Credentials
-              serverClientId:
-                  '265929694424-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-              scopes: ['email', 'profile'],
-            );
+  })  : _firebaseAuth = firebaseAuth,
+        _firestore = firestore,
+        _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['email', 'profile']);
 
   @override
   Future<void> signUpWithEmailAndPassword(String email, String password) async {
-    await _supabaseClient.auth.signUp(email: email, password: password);
+    await _firebaseAuth.createUserWithEmailAndPassword(email: email, password: password);
   }
 
   @override
   Future<void> signInWithEmailAndPassword(String email, String password) async {
-    await _supabaseClient.auth
-        .signInWithPassword(email: email, password: password);
+    await _firebaseAuth.signInWithEmailAndPassword(email: email, password: password);
   }
 
   @override
   Future<void> signInWithOtp(String phone) async {
-    await _supabaseClient.auth.signInWithOtp(phone: phone);
-  }
-
-  @override
-  Future<void> verifyOtp(String phone, String token) async {
-    await _supabaseClient.auth.verifyOTP(
-      type: OtpType.sms,
-      phone: phone,
-      token: token,
+    await _firebaseAuth.verifyPhoneNumber(
+      phoneNumber: phone,
+      verificationCompleted: (fb_auth.PhoneAuthCredential credential) async {
+        await _firebaseAuth.signInWithCredential(credential);
+      },
+      verificationFailed: (fb_auth.FirebaseAuthException e) {
+        throw Exception(e.message ?? 'Phone verification failed');
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        _verificationId = verificationId;
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _verificationId = verificationId;
+      },
     );
   }
 
   @override
-  Future<void> signInWithGoogle() async {
-    try {
-      // Sign out any previous session to avoid stale tokens
-      await _googleSignIn.signOut();
-
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        throw const AuthException('Google Sign In was cancelled by user.');
-      }
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final String? accessToken = googleAuth.accessToken;
-      final String? idToken = googleAuth.idToken;
-
-      if (accessToken == null || idToken == null) {
-        throw const AuthException(
-            'Failed to retrieve Google authentication tokens.');
-      }
-
-      await _supabaseClient.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
-      );
-    } catch (e) {
-      rethrow;
+  Future<void> verifyOtp(String phone, String token) async {
+    if (_verificationId == null) {
+      throw Exception('Verification code has expired or is invalid. Please request a new OTP.');
     }
+    final credential = fb_auth.PhoneAuthProvider.credential(
+      verificationId: _verificationId!,
+      smsCode: token,
+    );
+    await _firebaseAuth.signInWithCredential(credential);
+  }
+
+  @override
+  Future<void> signInWithGoogle() async {
+    await _googleSignIn.signOut();
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) {
+      throw Exception('Google Sign In was cancelled by user.');
+    }
+
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    final credential = fb_auth.GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    await _firebaseAuth.signInWithCredential(credential);
   }
 
   @override
   Future<void> signOut() async {
-    await _supabaseClient.auth.signOut();
+    await _firebaseAuth.signOut();
     await _googleSignIn.signOut();
   }
 
   @override
   Future<UserProfile?> getUserProfile(String uid) async {
-    final response = await _supabaseClient
-        .from('profiles')
-        .select()
-        .eq('id', uid)
-        .maybeSingle();
-
-    if (response == null) return null;
-    return UserProfileModel.fromJson(response);
+    final doc = await _firestore.collection('users').doc(uid).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return UserProfileModel.fromJson(doc.data()!);
   }
 
   @override
   Future<void> createUserProfile(UserProfile profile) async {
     final model = UserProfileModel.fromEntity(profile);
-    await _supabaseClient.from('profiles').insert(model.toJson());
+    try {
+      await _firestore
+          .collection('users')
+          .doc(profile.id)
+          .set(model.toJson())
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Fire-and-forget/offline write fallback to keep UI responsive
+    }
   }
 
   @override
   Future<void> updateUserProfile(UserProfile profile) async {
     final model = UserProfileModel.fromEntity(profile);
-    await _supabaseClient
-        .from('profiles')
-        .update(model.toJson())
-        .eq('id', profile.id);
+    await _firestore.collection('users').doc(profile.id).update(model.toJson());
   }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  final supabaseClient = ref.watch(supabaseClientProvider);
-  return AuthRepositoryImpl(supabaseClient: supabaseClient);
+  final firebaseAuth = ref.watch(firebaseAuthProvider);
+  final firestore = ref.watch(firestoreProvider);
+  return AuthRepositoryImpl(
+    firebaseAuth: firebaseAuth,
+    firestore: firestore,
+  );
 });

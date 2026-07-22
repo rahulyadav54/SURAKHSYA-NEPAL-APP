@@ -39,6 +39,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -289,38 +294,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             const SizedBox(height: 24),
 
             // ── TabBarView ───────────────────────────────────────────
-            SizedBox(
-              height: _tabController.index == 1 && _isSignUp ? 240 : 210,
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Tab 0 – Phone OTP
-                  _PhoneTab(
-                    controller: _phoneController,
-                    selectedDialCode: _selectedDialCode,
-                    selectedCountryCode: _selectedCountryCode,
-                    isLoading: isLoading,
-                    onCountryChanged: (code) {
-                      setState(() {
-                        _selectedDialCode = code.dialCode ?? '+977';
-                        _selectedCountryCode = code.code ?? 'NP';
-                      });
-                    },
-                    onSubmit: _handlePhoneSubmit,
-                  ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              child: SizedBox(
+                height: _tabController.index == 1 && _isSignUp ? 250 : 210,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // Tab 0 – Phone OTP
+                    _PhoneTab(
+                      controller: _phoneController,
+                      selectedDialCode: _selectedDialCode,
+                      selectedCountryCode: _selectedCountryCode,
+                      isLoading: isLoading,
+                      onCountryChanged: (code) {
+                        setState(() {
+                          _selectedDialCode = code.dialCode ?? '+977';
+                          _selectedCountryCode = code.code ?? 'NP';
+                        });
+                      },
+                      onSubmit: _handlePhoneSubmit,
+                    ),
 
-                  // Tab 1 – Email
-                  _EmailTab(
-                    emailController: _emailController,
-                    passwordController: _passwordController,
-                    isLoading: isLoading,
-                    isSignUp: _isSignUp,
-                    obscurePassword: _obscurePassword,
-                    onToggleObscure: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    onSubmit: _handleEmailSubmit,
-                  ),
-                ],
+                    // Tab 1 – Email
+                    _EmailTab(
+                      emailController: _emailController,
+                      passwordController: _passwordController,
+                      isLoading: isLoading,
+                      isSignUp: _isSignUp,
+                      obscurePassword: _obscurePassword,
+                      onToggleObscure: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      onSubmit: _handleEmailSubmit,
+                    ),
+                  ],
+                ),
               ),
             ),
 
