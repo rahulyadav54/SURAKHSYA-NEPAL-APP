@@ -840,6 +840,14 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
             const Spacer(),
             const Divider(),
             ListTile(
+              leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+              title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+              onTap: () async {
+                Navigator.pop(context);
+                await ref.read(authControllerProvider.notifier).signOut();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.info_outline_rounded),
               title: const Text('About Suraksha Nepal'),
               onTap: () {
