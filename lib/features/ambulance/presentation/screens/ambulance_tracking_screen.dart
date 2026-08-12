@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,31 @@ class AmbulanceTrackingScreen extends ConsumerStatefulWidget {
 
 class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScreen> {
   GoogleMapController? _mapController;
+  Timer? _simulationTimer;
+  double _simulationProgress = 0.0;
+
+  @override
+  void dispose() {
+    _simulationTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startSimulation() {
+    if (_simulationTimer != null) return;
+    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _simulationProgress += 0.05; // 20 steps to reach user
+        if (_simulationProgress >= 1.0) {
+          _simulationProgress = 1.0;
+          timer.cancel();
+        }
+      });
+    });
+  }
 
   /// Mocks a street-aligned optimized route polyline using intermediate nodes
   List<LatLng> _generateOptimizedRoutePoints(LatLng start, LatLng end) {
@@ -72,7 +98,15 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
           LatLng? ambulanceLatLng;
 
           if (request.ambulance != null) {
-            ambulanceLatLng = LatLng(request.ambulance!.latitude, request.ambulance!.longitude);
+            final startLat = request.ambulance!.latitude;
+            final startLng = request.ambulance!.longitude;
+
+            // Interpolate position based on progress
+            final currentLat = startLat + (latLng.latitude - startLat) * _simulationProgress;
+            final currentLng = startLng + (latLng.longitude - startLng) * _simulationProgress;
+            ambulanceLatLng = LatLng(currentLat, currentLng);
+
+            _startSimulation();
             
             // Generate optimized route
             final routePoints = _generateOptimizedRoutePoints(ambulanceLatLng, latLng);
@@ -244,7 +278,9 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      request.etaMinutes != null ? '${request.etaMinutes} mins' : '-- mins',
+                      request.etaMinutes != null 
+                          ? '${(request.etaMinutes! * (1.0 - _simulationProgress)).toStringAsFixed(0)} mins' 
+                          : '${(12 * (1.0 - _simulationProgress)).toStringAsFixed(0)} mins',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.primary,

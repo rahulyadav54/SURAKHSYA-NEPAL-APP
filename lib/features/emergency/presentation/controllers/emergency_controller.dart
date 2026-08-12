@@ -89,3 +89,5 @@ final emergencyControllerProvider = StateNotifierProvider<EmergencyController, E
     ref: ref,
   );
 });
+
+final homeTabIndexProvider = StateProvider<int>((ref) => 0);

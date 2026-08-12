@@ -6,6 +6,32 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../../../../core/widgets/error_widget.dart';
 import '../controllers/admin_controller.dart';
+import '../../../auth/domain/entities/user_profile.dart';
+import '../../../ambulance/domain/entities/ambulance.dart';
+
+class AdminEmergencyItem {
+  final String id;
+  final String userId;
+  final String type; // 'sos', 'ambulance', 'fire', 'police'
+  final String status;
+  final double latitude;
+  final double longitude;
+  final DateTime createdAt;
+  final String details;
+  final String severity; // e.g. HIGH, CRITICAL
+
+  AdminEmergencyItem({
+    required this.id,
+    required this.userId,
+    required this.type,
+    required this.status,
+    required this.createdAt,
+    required this.latitude,
+    required this.longitude,
+    required this.details,
+    required this.severity,
+  });
+}
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -16,6 +42,7 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   int _selectedTab = 0;
+  int _emergencyFilterIndex = 0; // 0: All, 1: SOS, 2: Ambulance, 3: Fire, 4: Police
 
   final List<Map<String, dynamic>> _tabs = [
     {'title': 'Overview', 'icon': Icons.dashboard_rounded},
@@ -202,59 +229,496 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   Widget _buildEmergencyTab(BuildContext context) {
     final theme = Theme.of(context);
+    
     final emergenciesAsync = ref.watch(adminEmergenciesProvider);
+    final ambulanceReqsAsync = ref.watch(adminAmbulanceReqsProvider);
+    final fireReportsAsync = ref.watch(adminFireReportsProvider);
+    final policeReportsAsync = ref.watch(adminPoliceReportsProvider);
+    final profilesAsync = ref.watch(adminProfilesProvider);
+    final ambulancesAsync = ref.watch(adminAmbulancesProvider);
     final controller = ref.read(adminControllerProvider);
+
+    // If any is loading, return loading spinner
+    if (emergenciesAsync.isLoading ||
+        ambulanceReqsAsync.isLoading ||
+        fireReportsAsync.isLoading ||
+        policeReportsAsync.isLoading ||
+        profilesAsync.isLoading ||
+        ambulancesAsync.isLoading) {
+      return const Center(child: SurakshaLoading(size: 40));
+    }
+
+    final emergencies = emergenciesAsync.value ?? [];
+    final ambulanceRequests = ambulanceReqsAsync.value ?? [];
+    final fireReports = fireReportsAsync.value ?? [];
+    final policeReports = policeReportsAsync.value ?? [];
+    final profiles = profilesAsync.value ?? [];
+    final ambulances = ambulancesAsync.value ?? [];
+
+    List<AdminEmergencyItem> allItems = [];
+
+    // Map SOS emergencies
+    for (final e in emergencies) {
+      allItems.add(AdminEmergencyItem(
+        id: e.id,
+        userId: e.userId,
+        type: 'sos',
+        status: e.status,
+        latitude: e.latitude,
+        longitude: e.longitude,
+        createdAt: e.createdAt,
+        details: 'SOS Alert triggered from device coordinates.',
+        severity: 'CRITICAL',
+      ));
+    }
+
+    // Map Ambulance requests
+    for (final a in ambulanceRequests) {
+      allItems.add(AdminEmergencyItem(
+        id: a.id,
+        userId: a.userId,
+        type: 'ambulance',
+        status: a.status.toUpperCase(),
+        latitude: a.pickupLatitude,
+        longitude: a.pickupLongitude,
+        createdAt: a.createdAt,
+        details: 'Patient Status: ${a.patientStatus}',
+        severity: a.patientStatus,
+      ));
+    }
+
+    // Map Fire reports
+    for (final f in fireReports) {
+      allItems.add(AdminEmergencyItem(
+        id: f.id,
+        userId: f.userId,
+        type: 'fire',
+        status: f.status.toUpperCase(),
+        latitude: f.latitude,
+        longitude: f.longitude,
+        createdAt: f.createdAt,
+        details: f.description,
+        severity: f.aiPredictedSeverity,
+      ));
+    }
+
+    // Map Police reports
+    for (final p in policeReports) {
+      allItems.add(AdminEmergencyItem(
+        id: p.id,
+        userId: p.userId,
+        type: 'police',
+        status: p.status.toUpperCase(),
+        latitude: p.latitude,
+        longitude: p.longitude,
+        createdAt: p.createdAt,
+        details: 'Category: ${p.category}. Description: ${p.description}',
+        severity: 'MEDIUM',
+      ));
+    }
+
+    // Sort descending by date
+    allItems.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    // Filter based on selected category index
+    final filteredItems = allItems.where((item) {
+      if (_emergencyFilterIndex == 1) return item.type == 'sos';
+      if (_emergencyFilterIndex == 2) return item.type == 'ambulance';
+      if (_emergencyFilterIndex == 3) return item.type == 'fire';
+      if (_emergencyFilterIndex == 4) return item.type == 'police';
+      return true;
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Active SOS Incidents',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Emergency Dispatch & Controller Console',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () {
+                ref.invalidate(adminEmergenciesProvider);
+                ref.invalidate(adminAmbulanceReqsProvider);
+                ref.invalidate(adminFireReportsProvider);
+                ref.invalidate(adminPoliceReportsProvider);
+                ref.invalidate(adminProfilesProvider);
+                ref.invalidate(adminAmbulancesProvider);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Filter chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _filterChip(0, 'All Requests (${allItems.length})'),
+              const SizedBox(width: 8),
+              _filterChip(1, 'SOS Alerts (${allItems.where((i) => i.type == 'sos').length})'),
+              const SizedBox(width: 8),
+              _filterChip(2, 'Ambulance Requests (${allItems.where((i) => i.type == 'ambulance').length})'),
+              const SizedBox(width: 8),
+              _filterChip(3, 'Fire Reports (${allItems.where((i) => i.type == 'fire').length})'),
+              const SizedBox(width: 8),
+              _filterChip(4, 'Police Incident Reports (${allItems.where((i) => i.type == 'police').length})'),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
+
         Expanded(
-          child: emergenciesAsync.when(
-            data: (list) {
-              if (list.isEmpty) {
-                return const Center(child: Text('No active incidents reported.'));
-              }
+          child: filteredItems.isEmpty
+              ? const Center(child: Text('No active incidents reported under this filter.'))
+              : ListView.builder(
+                  itemCount: filteredItems.length,
+                  itemBuilder: (context, index) {
+                    final item = filteredItems[index];
+                    
+                    // Retrieve citizen profile matching userId
+                    UserProfile? citizen;
+                    for (final p in profiles) {
+                      if (p.id == item.userId) {
+                        citizen = p;
+                        break;
+                      }
+                    }
 
-              return ListView.builder(
-                itemCount: list.length,
-                itemBuilder: (context, index) {
-                  final ev = list[index];
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      title: Text('SOS Event - ${ev.status}'),
-                      subtitle: Text('Location: (${ev.latitude}, ${ev.longitude})'),
-                      trailing: DropdownButton<String>(
-                        value: ev.status,
-                        items: ['PENDING', 'ACTIVE', 'RESOLVED'].map((status) {
-                          return DropdownMenuItem(
-                            value: status,
-                            child: Text(status),
-                          );
-                        }).toList(),
-                        onChanged: (newStatus) {
-                          if (newStatus != null) {
-                            controller.updateEmergencyStatus(ev.id, newStatus);
-                          }
-                        },
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-            loading: () => const SurakshaLoading(size: 40),
-            error: (err, _) => SurakshaErrorWidget(message: err.toString(), onRetry: () => ref.invalidate(adminEmergenciesProvider)),
-          ),
+                    return _buildEmergencyIncidentCard(context, item, citizen, ambulances, controller);
+                  },
+                ),
         ),
       ],
     );
+  }
+
+  Widget _buildEmergencyIncidentCard(
+    BuildContext context,
+    AdminEmergencyItem item,
+    UserProfile? citizen,
+    List<Ambulance> ambulances,
+    AdminController controller,
+  ) {
+    final theme = Theme.of(context);
+    
+    // Type styling configuration
+    IconData iconData = Icons.emergency_rounded;
+    Color typeColor = Colors.red;
+    String typeLabel = 'SOS ALERT';
+    if (item.type == 'ambulance') {
+      iconData = Icons.local_hospital_rounded;
+      typeColor = Colors.red.shade600;
+      typeLabel = 'AMBULANCE REQUEST';
+    } else if (item.type == 'fire') {
+      iconData = Icons.local_fire_department_rounded;
+      typeColor = Colors.orange.shade700;
+      typeLabel = 'FIRE REPORT';
+    } else if (item.type == 'police') {
+      iconData = Icons.local_police_rounded;
+      typeColor = Colors.blue.shade700;
+      typeLabel = 'POLICE REPORT';
+    }
+
+    final isResolved = item.status == 'RESOLVED' || item.status == 'SUCCESS';
+    final isCancelled = item.status == 'CANCELLED';
+    final statusColor = isCancelled 
+        ? Colors.grey 
+        : (isResolved ? Colors.green : Colors.red.shade700);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Row: Type Indicator and Status Dropdown
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: typeColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(iconData, color: typeColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        typeLabel,
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: typeColor, letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatDateTime(item.createdAt),
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                    borderRadius: BorderRadius.circular(8),
+                    color: statusColor.withValues(alpha: 0.05),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: ['PENDING', 'ACTIVE', 'RESOLVED', 'CANCELLED'].contains(item.status) ? item.status : 'PENDING',
+                      style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                      items: ['PENDING', 'ACTIVE', 'RESOLVED', 'CANCELLED'].map((s) {
+                        return DropdownMenuItem(value: s, child: Text(s));
+                      }).toList(),
+                      onChanged: (newStatus) {
+                        if (newStatus != null) {
+                          _updateStatus(controller, item, newStatus);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+
+            // Citizen Profile Info
+            Text(
+              'CITIZEN PROFILE DETAILS',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.outline,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (citizen != null) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          citizen.fullName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.phone_rounded, size: 14, color: Colors.grey),
+                            const SizedBox(width: 6),
+                            Text(citizen.phone, style: const TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (citizen.bloodGroup.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.water_drop_rounded, size: 14, color: Colors.red),
+                          const SizedBox(width: 4),
+                          Text(
+                            citizen.bloodGroup,
+                            style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              if (citizen.allergies.isNotEmpty || citizen.medicalNotes.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade200, width: 0.5),
+                  ),
+                  child: Text(
+                    'Allergies/Meds: ${citizen.allergies.isNotEmpty ? citizen.allergies : "None"} | Notes: ${citizen.medicalNotes.isNotEmpty ? citizen.medicalNotes : "None"}',
+                    style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ] else ...[
+              const Row(
+                children: [
+                  Icon(Icons.person_outline_rounded, size: 16, color: Colors.grey),
+                  SizedBox(width: 8),
+                  Text(
+                    'Guest Citizen (Profile Details Not Populated)',
+                    style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13),
+                  ),
+                ],
+              ),
+            ],
+            const Divider(height: 24),
+
+            // Incident Details
+            Text(
+              'INCIDENT DETAILS',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.outline,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.location_on_rounded, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(
+                  'GPS: (${item.latitude.toStringAsFixed(5)}, ${item.longitude.toStringAsFixed(5)})',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              item.details,
+              style: const TextStyle(fontSize: 13, height: 1.3),
+            ),
+            const Divider(height: 24),
+
+            // Responder Dispatch Assignment
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: item.status == 'RESOLVED' || item.status == 'CANCELLED'
+                      ? Text(
+                          'Incident Closed',
+                          style: TextStyle(color: theme.colorScheme.outline, fontStyle: FontStyle.italic, fontSize: 12),
+                        )
+                      : Row(
+                          children: [
+                            const Text(
+                              'Dispatched Unit: ',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    hint: const Text('Assign Responder', style: TextStyle(fontSize: 11)),
+                                    isExpanded: true,
+                                    items: ambulances.map((amb) {
+                                      return DropdownMenuItem(
+                                        value: amb.id,
+                                        child: Text(
+                                          '${amb.driverName} (${amb.licensePlate})',
+                                          style: const TextStyle(fontSize: 11),
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (ambId) {
+                                      if (ambId != null) {
+                                        final targetAmb = ambulances.firstWhere((a) => a.id == ambId);
+                                        _dispatchResponder(context, controller, item, targetAmb);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(int index, String label) {
+    final isSelected = _emergencyFilterIndex == index;
+    final theme = Theme.of(context);
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (val) {
+        if (val) {
+          setState(() {
+            _emergencyFilterIndex = index;
+          });
+        }
+      },
+      selectedColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+      labelStyle: TextStyle(
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+      ),
+    );
+  }
+
+  void _updateStatus(AdminController controller, AdminEmergencyItem item, String status) {
+    if (item.type == 'sos') {
+      controller.updateEmergencyStatus(item.id, status);
+    } else if (item.type == 'ambulance') {
+      controller.updateAmbulanceRequestStatus(item.id, status.toLowerCase());
+    } else if (item.type == 'fire') {
+      controller.updateFireReportStatus(item.id, status.toLowerCase());
+    } else if (item.type == 'police') {
+      controller.updatePoliceReportStatus(item.id, status.toLowerCase());
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Incident status updated to $status.')),
+    );
+  }
+
+  void _dispatchResponder(BuildContext context, AdminController controller, AdminEmergencyItem item, Ambulance amb) {
+    _updateStatus(controller, item, 'ACTIVE');
+    controller.updateAmbulanceStatus(amb.id, 'BUSY');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Dispatched responder ${amb.driverName} (${amb.licensePlate}) successfully!'),
+        backgroundColor: Colors.green.shade700,
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final year = dt.year;
+    final month = dt.month.toString().padLeft(2, '0');
+    final day = dt.day.toString().padLeft(2, '0');
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '$year-$month-$day $hour:$min';
   }
 
   Widget _buildUsersTab(BuildContext context) {

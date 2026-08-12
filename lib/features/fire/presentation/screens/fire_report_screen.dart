@@ -89,7 +89,7 @@ class _FireReportScreenState extends ConsumerState<FireReportScreen> {
   Future<void> _submitReport() async {
     if (_descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया घटनाको विवरण प्रविष्ट गर्नुहोस् (Please describe the incident)')),
+        const SnackBar(content: Text('Please describe the incident')),
       );
       return;
     }
@@ -143,7 +143,7 @@ class _FireReportScreenState extends ConsumerState<FireReportScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'घटनाको विवरण (Incident Details)',
+                'Incident Details',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -160,7 +160,7 @@ class _FireReportScreenState extends ConsumerState<FireReportScreen> {
               const SizedBox(height: 24),
 
               Text(
-                'मिडिया क्याप्चर (Attach Media Assets)',
+                'Attach Media Assets',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),

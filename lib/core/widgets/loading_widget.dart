@@ -23,7 +23,7 @@ class SurakshaLoading extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'लोड हुँदैछ...', 
+            'Loading...', 
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),

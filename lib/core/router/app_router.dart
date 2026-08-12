@@ -16,6 +16,9 @@ import '../../features/hospital/domain/entities/hospital.dart';
 import '../../features/hospital/presentation/screens/hospital_list_screen.dart';
 import '../../features/hospital/presentation/screens/hospital_details_screen.dart';
 import '../../features/admin/presentation/screens/admin_dashboard_screen.dart';
+import '../../features/emergency/presentation/screens/live_map_screen.dart';
+import '../../features/emergency/presentation/screens/disaster_alerts_screen.dart';
+import '../../features/emergency/presentation/screens/licenses_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -98,6 +101,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/admin',
       builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/live-map',
+      builder: (context, state) => const LiveMapScreen(),
+    ),
+    GoRoute(
+      path: '/disaster-alerts',
+      builder: (context, state) => const DisasterAlertsScreen(),
+    ),
+    GoRoute(
+      path: '/licenses',
+      builder: (context, state) => const LicensesScreen(),
     ),
   ],
 );

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,45 @@ class PoliceTrackingScreen extends ConsumerStatefulWidget {
 }
 
 class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
+  GoogleMapController? _mapController;
+  Timer? _simulationTimer;
+  double _simulationProgress = 0.0;
+
+  @override
+  void dispose() {
+    _simulationTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startSimulation() {
+    if (_simulationTimer != null) return;
+    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _simulationProgress += 0.05; // 20 steps to reach destination
+        if (_simulationProgress >= 1.0) {
+          _simulationProgress = 1.0;
+          timer.cancel();
+        }
+      });
+    });
+  }
+
+  List<LatLng> _generateOptimizedRoutePoints(LatLng start, LatLng end) {
+    final list = <LatLng>[];
+    list.add(start);
+    final dLat = end.latitude - start.latitude;
+    final dLon = end.longitude - start.longitude;
+    list.add(LatLng(start.latitude + dLat * 0.30, start.longitude + dLon * 0.20));
+    list.add(LatLng(start.latitude + dLat * 0.60, start.longitude + dLon * 0.75));
+    list.add(LatLng(start.latitude + dLat * 0.80, start.longitude + dLon * 0.45));
+    list.add(end);
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
     final reportAsync = ref.watch(activePoliceStreamProvider(widget.reportId));
@@ -37,25 +77,76 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
       ),
       body: reportAsync.when(
         data: (report) {
+          final targetLatLng = LatLng(report.latitude, report.longitude);
+          
+          // Fixed mock starting position for police unit (approx 1 km offset)
+          final double startLat = report.latitude - 0.008;
+          final double startLng = report.longitude + 0.007;
+
+          // Compute interpolated dynamic vehicle coordinates
+          final currentLat = startLat + (report.latitude - startLat) * _simulationProgress;
+          final currentLng = startLng + (report.longitude - startLng) * _simulationProgress;
+          final policeLatLng = LatLng(currentLat, currentLng);
+
+          // Start active route simulation
+          _startSimulation();
+
           final Set<Marker> markers = {
             Marker(
               markerId: const MarkerId('pickup'),
-              position: LatLng(report.latitude, report.longitude),
-              infoWindow: const InfoWindow(title: 'Emergency Spot (घटनास्थल)'),
+              position: targetLatLng,
+              infoWindow: const InfoWindow(title: 'Emergency Spot'),
               icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
             ),
+            Marker(
+              markerId: const MarkerId('police_unit'),
+              position: policeLatLng,
+              infoWindow: const InfoWindow(title: 'Police Patrol Unit - BA 1 PA 9999', snippet: 'Responding Officer: Inspector Kumar'),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+            ),
           };
+
+          final routePoints = _generateOptimizedRoutePoints(policeLatLng, targetLatLng);
+          final Set<Polyline> polylines = {
+            Polyline(
+              polylineId: const PolylineId('police_route'),
+              points: routePoints,
+              color: Colors.blue.shade700,
+              width: 6,
+              jointType: JointType.round,
+              startCap: Cap.roundCap,
+              endCap: Cap.roundCap,
+            ),
+          };
+
+          if (_mapController != null) {
+            final bounds = LatLngBounds(
+              southwest: LatLng(
+                targetLatLng.latitude < policeLatLng.latitude ? targetLatLng.latitude : policeLatLng.latitude,
+                targetLatLng.longitude < policeLatLng.longitude ? targetLatLng.longitude : policeLatLng.longitude,
+              ),
+              northeast: LatLng(
+                targetLatLng.latitude > policeLatLng.latitude ? targetLatLng.latitude : policeLatLng.latitude,
+                targetLatLng.longitude > policeLatLng.longitude ? targetLatLng.longitude : policeLatLng.longitude,
+              ),
+            );
+            _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80.0));
+          }
 
           return Stack(
             children: [
               GoogleMap(
                 initialCameraPosition: CameraPosition(
-                  target: LatLng(report.latitude, report.longitude),
-                  zoom: 15.0,
+                  target: targetLatLng,
+                  zoom: 14.5,
                 ),
                 markers: markers,
+                polylines: polylines,
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                },
               ),
 
               Positioned(
@@ -96,6 +187,8 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
       {'title': 'Resolved', 'subtitle': 'Cleared'},
     ];
 
+    final etaMin = (8 * (1.0 - _simulationProgress)).toStringAsFixed(0);
+
     return Card(
       elevation: 6,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -108,12 +201,25 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'DISPATCH PROGRESS',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.outline,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'POLICE DISPATCH PROGRESS',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _simulationProgress < 1.0 ? 'Police Unit arriving in $etaMin mins' : 'Police Unit arrived on site',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

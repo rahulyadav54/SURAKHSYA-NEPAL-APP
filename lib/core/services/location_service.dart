@@ -32,10 +32,20 @@ class LocationService {
         return _fallbackPosition();
       } 
 
-      // Fetch position with a 5 second maximum timeout constraint
+      // Try fetching last known position first for instant speed optimization
+      try {
+        final lastPosition = await Geolocator.getLastKnownPosition();
+        if (lastPosition != null) {
+          return lastPosition;
+        }
+      } catch (e) {
+        debugPrint('Error fetching last known position: $e');
+      }
+
+      // Fetch position with a fast 2 second maximum timeout constraint
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 5),
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 2),
       );
     } catch (e) {
       debugPrint('Error fetching GPS coordinates: $e. Falling back.');

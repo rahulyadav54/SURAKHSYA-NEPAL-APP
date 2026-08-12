@@ -18,21 +18,21 @@ class _AmbulanceRequestScreenState extends ConsumerState<AmbulanceRequestScreen>
   final List<Map<String, dynamic>> _statusOptions = [
     {
       'status': 'STABLE',
-      'labelNp': 'सामान्य अवस्था (Stable)',
+      'labelNp': 'Stable Vitals',
       'desc': 'Patient is conscious, breathing normally, and has stable vitals.',
       'color': Colors.green,
       'icon': Icons.check_circle_outline_rounded,
     },
     {
       'status': 'SEMI_CRITICAL',
-      'labelNp': 'मध्यम अवस्था (Semi-Critical)',
+      'labelNp': 'Semi-Critical Vitals',
       'desc': 'Patient needs immediate first aid support but is currently stable.',
       'color': Colors.orange,
       'icon': Icons.info_outline_rounded,
     },
     {
       'status': 'CRITICAL',
-      'labelNp': 'गम्भीर अवस्था (Critical)',
+      'labelNp': 'Critical Vitals',
       'desc': 'Severe injuries, unconsciousness, heavy bleeding, or breathing failures.',
       'color': Colors.red,
       'icon': Icons.warning_rounded,
@@ -42,7 +42,7 @@ class _AmbulanceRequestScreenState extends ConsumerState<AmbulanceRequestScreen>
   Future<void> _submitRequest() async {
     if (_selectedStatus == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया बिरामीको अवस्था छनौट गर्नुहोस् (Please select patient status)')),
+        const SnackBar(content: Text('Please select patient status')),
       );
       return;
     }
@@ -88,7 +88,7 @@ class _AmbulanceRequestScreenState extends ConsumerState<AmbulanceRequestScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'बिरामीको अवस्था छनौट गर्नुहोस्\nSelect Patient Severity',
+                'Select Patient Severity',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   height: 1.5,

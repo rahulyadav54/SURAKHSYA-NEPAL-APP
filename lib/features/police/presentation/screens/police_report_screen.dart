@@ -22,11 +22,11 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
   XFile? _evidenceFile;
 
   final List<Map<String, dynamic>> _categories = [
-    {'status': 'Theft', 'labelNp': 'चोरी/डाँका (Theft/Robbery)', 'icon': Icons.lock_open_rounded, 'color': Colors.red},
-    {'status': 'Assault', 'labelNp': 'कुटपिट/हिंसा (Assault/Violence)', 'icon': Icons.gavel_rounded, 'color': Colors.orange},
-    {'status': 'Harassment', 'labelNp': 'दुर्व्यवहार (Harassment/Abuse)', 'icon': Icons.front_hand_rounded, 'color': Colors.blue},
-    {'status': 'Accident', 'labelNp': 'दुर्घटना (Traffic Accident)', 'icon': Icons.car_crash_rounded, 'color': Colors.teal},
-    {'status': 'Other', 'labelNp': 'अन्य (Other incident type)', 'icon': Icons.emergency_rounded, 'color': Colors.grey},
+    {'status': 'Theft', 'labelNp': 'Theft / Robbery', 'icon': Icons.lock_open_rounded, 'color': Colors.red},
+    {'status': 'Assault', 'labelNp': 'Assault / Violence', 'icon': Icons.gavel_rounded, 'color': Colors.orange},
+    {'status': 'Harassment', 'labelNp': 'Harassment / Abuse', 'icon': Icons.front_hand_rounded, 'color': Colors.blue},
+    {'status': 'Accident', 'labelNp': 'Traffic Accident', 'icon': Icons.car_crash_rounded, 'color': Colors.teal},
+    {'status': 'Other', 'labelNp': 'Other Incident Type', 'icon': Icons.emergency_rounded, 'color': Colors.grey},
   ];
 
   @override
@@ -51,14 +51,14 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
   Future<void> _submitReport() async {
     if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया घटनाको वर्ग छनौट गर्नुहोस् (Please select incident category)')),
+        const SnackBar(content: Text('Please select incident category')),
       );
       return;
     }
 
     if (_descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया घटनाको विवरण प्रविष्ट गर्नुहोस् (Please describe the incident)')),
+        const SnackBar(content: Text('Please describe the incident')),
       );
       return;
     }
@@ -107,7 +107,7 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'घटनाको विधा छनौट गर्नुहोस् (Select Incident Type)',
+                'Select Incident Type',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -159,7 +159,7 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
               const SizedBox(height: 24),
 
               Text(
-                'घटनाको विवरण (Incident Details)',
+                'Incident Details',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -176,7 +176,7 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
               const SizedBox(height: 24),
 
               Text(
-                'प्रमाण लोड गर्नुहोस् (Upload Evidence File)',
+                'Upload Evidence File',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
