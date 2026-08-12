@@ -40,10 +40,14 @@ dependencies:
   # Routing
   go_router: ^14.2.1
 
-  # Backend & Firebase
+  # Backend — Firebase (Auth + FCM + existing Firestore)
   firebase_core: ^3.1.1
   firebase_auth: ^5.1.1
   cloud_firestore: ^5.0.1
+
+  # Backend — Supabase (PostgreSQL, Realtime, Storage, Edge Functions)
+  supabase_flutter: ^2.5.0
+
 
   # Authentication
   google_sign_in: ^6.2.1

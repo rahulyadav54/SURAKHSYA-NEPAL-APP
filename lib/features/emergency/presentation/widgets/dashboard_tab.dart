@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:go_router/go_router.dart';
 import '../controllers/emergency_controller.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+
 
 class SimulatedCoordinates {
   final double latitude;

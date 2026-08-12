@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/config/supabase_config.dart';
 import 'core/constants/constants.dart';
 import 'core/router/app_router.dart';
 import 'core/services/firebase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/cache_service.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +49,21 @@ void main() async {
   // Safely initialize Firebase core services
   await FirebaseService.initialize();
 
+  // Initialize Supabase client (PostgreSQL, Realtime, Edge Functions)
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.supabaseUrl,
+      // supabase_flutter 2.15+ uses publishableKey instead of anonKey
+      // ignore: deprecated_member_use
+      anonKey: SupabaseConfig.supabaseAnonKey,
+      debug: false, // set true to see Supabase network logs during development
+    );
+    debugPrint('Supabase successfully initialized.');
+  } catch (e) {
+    debugPrint('WARNING: Supabase initialization failed. App will run in offline mode. Detail: $e');
+  }
+
+
   runApp(
     ProviderScope(
       overrides: [
@@ -55,6 +73,7 @@ void main() async {
     ),
   );
 }
+
 
 class SurakshaNepalApp extends ConsumerStatefulWidget {
   const SurakshaNepalApp({super.key});
