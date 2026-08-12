@@ -530,41 +530,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       ],
                     ),
                   ),
-                  if (citizen.bloodGroup.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.water_drop_rounded, size: 14, color: Colors.red),
-                          const SizedBox(width: 4),
-                          Text(
-                            citizen.bloodGroup,
-                            style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
-              if (citizen.allergies.isNotEmpty || citizen.medicalNotes.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.shade200, width: 0.5),
-                  ),
-                  child: Text(
-                    'Allergies/Meds: ${citizen.allergies.isNotEmpty ? citizen.allergies : "None"} | Notes: ${citizen.medicalNotes.isNotEmpty ? citizen.medicalNotes : "None"}',
-                    style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ],
             ] else ...[
               const Row(
                 children: [

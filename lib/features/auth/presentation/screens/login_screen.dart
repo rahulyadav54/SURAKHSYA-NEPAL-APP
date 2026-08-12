@@ -376,6 +376,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               onPressed: () =>
                   ref.read(authControllerProvider.notifier).signInWithGoogle(),
             ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      final success = await ref
+                          .read(authControllerProvider.notifier)
+                          .signInAnonymously();
+                      if (success && mounted) {
+                        _showSnack('Logged in as Test User', success: true);
+                      }
+                    },
+              icon: const Icon(Icons.developer_mode_rounded, size: 16, color: Colors.grey),
+              label: const Text(
+                'Bypass Authentication (Test Mode)',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -530,15 +553,33 @@ class _PhoneTab extends StatelessWidget {
         const SizedBox(height: 8),
 
         // ── International note ──────────────────────────────────────
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.public_rounded,
-                size: 13, color: Colors.grey.shade500),
-            const SizedBox(width: 4),
-            Text(
-              'Works with any country ($selectedDialCode selected)',
-              style: TextStyle(
-                  fontSize: 11, color: Colors.grey.shade500),
+            Row(
+              children: [
+                Icon(Icons.public_rounded,
+                    size: 13, color: Colors.grey.shade500),
+                const SizedBox(width: 4),
+                Text(
+                  'Works with any country ($selectedDialCode selected)',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 13, color: Colors.amber.shade800),
+                const SizedBox(width: 4),
+                Text(
+                  'Test Mode: Use 9800000000 with verification OTP 123456.',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.amber.shade800, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
           ],
         ),

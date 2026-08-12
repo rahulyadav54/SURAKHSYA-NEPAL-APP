@@ -111,6 +111,17 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  Future<bool> signInAnonymously() async {
+    state = const AuthLoading();
+    try {
+      await _authRepository.signInAnonymously();
+      return true;
+    } catch (e) {
+      state = AuthError(e.toString());
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
     state = const AuthLoading();
     try {

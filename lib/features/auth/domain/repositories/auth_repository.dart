@@ -6,6 +6,7 @@ abstract class AuthRepository {
   Future<void> signInWithOtp(String phone);
   Future<void> verifyOtp(String phone, String token);
   Future<void> signInWithGoogle();
+  Future<void> signInAnonymously();
   Future<void> signOut();
   Future<UserProfile?> getUserProfile(String uid);
   Future<void> createUserProfile(UserProfile profile);

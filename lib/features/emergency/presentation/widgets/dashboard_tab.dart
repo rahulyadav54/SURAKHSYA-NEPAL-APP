@@ -121,6 +121,230 @@ class DashboardTab extends ConsumerStatefulWidget {
 }
 
 class _DashboardTabState extends ConsumerState<DashboardTab> {
+  void _showServicesDirectorySheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'Emergency Service Directory',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Direct dial emergency hotlines or submit formal geolocated dispatch requests.',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      children: [
+                        _buildDirectoryItem(
+                          title: 'Ambulance & Medical Care',
+                          hotline: '102',
+                          desc: 'Immediate dispatch for severe accidents, cardiac events, trauma, and medical transport.',
+                          icon: Icons.airport_shuttle_rounded,
+                          color: const Color(0xFFFFEBEE),
+                          iconColor: const Color(0xFFD32F2F),
+                          route: '/ambulance',
+                        ),
+                        _buildDirectoryItem(
+                          title: 'Fire Brigade & Evacuation',
+                          hotline: '101',
+                          desc: 'Rapid fire control, hazardous material containment, and rescue operations.',
+                          icon: Icons.local_fire_department_rounded,
+                          color: const Color(0xFFFFF3E0),
+                          iconColor: const Color(0xFFF57C00),
+                          route: '/fire',
+                        ),
+                        _buildDirectoryItem(
+                          title: 'Police & Citizen Protection',
+                          hotline: '100',
+                          desc: 'Emergency security dispatch, reporting active threats, and public safety support.',
+                          icon: Icons.local_police_rounded,
+                          color: const Color(0xFFE3F2FD),
+                          iconColor: const Color(0xFF1976D2),
+                          route: '/police',
+                        ),
+                        _buildDirectoryItem(
+                          title: 'Hospitals & Trauma Centers',
+                          hotline: '985-1010101',
+                          desc: 'Directory list of critical trauma units, emergency centers, and ICUs around Nepal.',
+                          icon: Icons.local_hospital_rounded,
+                          color: const Color(0xFFE8F5E9),
+                          iconColor: const Color(0xFF388E3C),
+                          route: '/hospitals',
+                        ),
+                        _buildDirectoryItem(
+                          title: 'Blood Bank Directory',
+                          hotline: '984-2020202',
+                          desc: 'Connect directly with local blood banks, active blood donor registries, and stock controls.',
+                          icon: Icons.bloodtype_rounded,
+                          color: const Color(0xFFFEEBEE),
+                          iconColor: const Color(0xFFE64A19),
+                          onTap: () {
+                            Navigator.pop(context);
+                            ref.read(homeTabIndexProvider.notifier).state = 3;
+                          },
+                        ),
+                        _buildDirectoryItem(
+                          title: 'Disaster Support & Alert Control',
+                          hotline: '1155',
+                          desc: 'Live disaster tracking, early warning announcements, and safety advisory manuals.',
+                          icon: Icons.campaign_rounded,
+                          color: const Color(0xFFF3E5F5),
+                          iconColor: const Color(0xFF8E24AA),
+                          route: '/disaster-alerts',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDirectoryItem({
+    required String title,
+    required String hotline,
+    required String desc,
+    required IconData icon,
+    required Color color,
+    required Color iconColor,
+    String? route,
+    VoidCallback? onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1E293B)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Toll-Free Hotline: $hotline',
+                      style: TextStyle(color: iconColor, fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            desc,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Simulating call to $hotline...'),
+                        backgroundColor: iconColor,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.phone_rounded, size: 16),
+                  label: const Text('Call Hotline', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: iconColor,
+                    side: BorderSide(color: iconColor.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    if (onTap != null) {
+                      onTap();
+                    } else if (route != null) {
+                      context.push(route);
+                    }
+                  },
+                  icon: const Icon(Icons.send_rounded, size: 16),
+                  label: const Text('Request Dispatch', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E293B),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showLocationSelectionSheet() {
     showModalBottomSheet(
       context: context,
@@ -1020,7 +1244,9 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
                           ),
                         ),
                         TextButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            _showServicesDirectorySheet();
+                          },
                           child: const Text(
                             'View All',
                             style: TextStyle(
