@@ -9,14 +9,39 @@ import 'package:geocoding/geocoding.dart';
 import 'package:go_router/go_router.dart';
 import '../controllers/emergency_controller.dart';
 
+class SimulatedCoordinates {
+  final double latitude;
+  final double longitude;
+  final String label;
+
+  const SimulatedCoordinates({
+    required this.latitude,
+    required this.longitude,
+    required this.label,
+  });
+}
+
+final simulatedLocationProvider = StateProvider<SimulatedCoordinates?>((ref) => null);
+
 final currentLocationNameProvider = FutureProvider.autoDispose<String>((ref) async {
+  final sim = ref.watch(simulatedLocationProvider);
+  if (sim != null) {
+    return sim.label;
+  }
+  
   try {
     final locationService = ref.watch(locationServiceProvider);
     final position = await locationService.getCurrentLocation();
-    final placemarks = await placemarkFromCoordinates(
-      position.latitude,
-      position.longitude,
-    );
+    
+    double lat = position.latitude;
+    double lon = position.longitude;
+    
+    // Auto-detect standard Google Emulator default coords and show Kathmandu
+    if (lat >= 37.421 && lat <= 37.423 && lon >= -122.085 && lon <= -122.083) {
+      return 'Kathmandu, Nepal';
+    }
+    
+    final placemarks = await placemarkFromCoordinates(lat, lon);
     if (placemarks.isNotEmpty) {
       final pm = placemarks.first;
       final city = pm.locality ?? pm.subAdministrativeArea ?? pm.administrativeArea ?? '';
@@ -34,12 +59,29 @@ final currentLocationNameProvider = FutureProvider.autoDispose<String>((ref) asy
 
 final weatherProvider = FutureProvider.autoDispose<Map<String, String>>((ref) async {
   try {
-    final locationService = ref.watch(locationServiceProvider);
-    final position = await locationService.getCurrentLocation();
+    double lat;
+    double lon;
+    
+    final sim = ref.watch(simulatedLocationProvider);
+    if (sim != null) {
+      lat = sim.latitude;
+      lon = sim.longitude;
+    } else {
+      final locationService = ref.watch(locationServiceProvider);
+      final position = await locationService.getCurrentLocation();
+      lat = position.latitude;
+      lon = position.longitude;
+      
+      // Auto-detect standard Google Emulator default coords and map to Kathmandu
+      if (lat >= 37.421 && lat <= 37.423 && lon >= -122.085 && lon <= -122.083) {
+        lat = 27.7172;
+        lon = 85.3240;
+      }
+    }
     
     final client = HttpClient();
     final uri = Uri.parse(
-      'https://api.open-meteo.com/v1/forecast?latitude=${position.latitude}&longitude=${position.longitude}&current_weather=true'
+      'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true'
     );
     final request = await client.getUrl(uri);
     final response = await request.close();
@@ -79,6 +121,94 @@ class DashboardTab extends ConsumerStatefulWidget {
 }
 
 class _DashboardTabState extends ConsumerState<DashboardTab> {
+  void _showLocationSelectionSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final currentSim = ref.watch(simulatedLocationProvider);
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Select Active Location',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Choose a city to simulate Nepalese weather and geolocated dispatches, or use your live GPS coordinates.',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              
+              // Live GPS Location Option
+              ListTile(
+                leading: Icon(
+                  Icons.my_location_rounded,
+                  color: currentSim == null ? const Color(0xFFC62828) : Colors.grey,
+                ),
+                title: Text(
+                  'Live GPS coordinates',
+                  style: TextStyle(
+                    fontWeight: currentSim == null ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                trailing: currentSim == null
+                    ? const Icon(Icons.check_circle_rounded, color: Color(0xFFC62828))
+                    : null,
+                onTap: () {
+                  ref.read(simulatedLocationProvider.notifier).state = null;
+                  Navigator.pop(context);
+                },
+              ),
+              
+              // Kathmandu
+              _buildCityListTile('Kathmandu, Nepal', 27.7172, 85.3240, currentSim),
+              // Pokhara
+              _buildCityListTile('Pokhara, Nepal', 28.2096, 83.9856, currentSim),
+              // Lalitpur
+              _buildCityListTile('Lalitpur, Nepal', 27.6744, 85.3223, currentSim),
+              // Biratnagar
+              _buildCityListTile('Biratnagar, Nepal', 26.4525, 87.2718, currentSim),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCityListTile(String label, double lat, double lon, SimulatedCoordinates? currentSim) {
+    final isSelected = currentSim != null && currentSim.label == label;
+    return ListTile(
+      leading: Icon(
+        Icons.location_city_rounded,
+        color: isSelected ? const Color(0xFFC62828) : Colors.grey,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle_rounded, color: Color(0xFFC62828))
+          : null,
+      onTap: () {
+        ref.read(simulatedLocationProvider.notifier).state = SimulatedCoordinates(
+          latitude: lat,
+          longitude: lon,
+          label: label,
+        );
+        Navigator.pop(context);
+      },
+    );
+  }
+
   void _showCustomAboutDialog(BuildContext context) {
     final theme = Theme.of(context);
     showDialog(
@@ -627,8 +757,7 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
                       ),
                       child: InkWell(
                         onTap: () {
-                          ref.invalidate(currentLocationNameProvider);
-                          ref.invalidate(weatherProvider);
+                          _showLocationSelectionSheet();
                         },
                         borderRadius: BorderRadius.circular(20),
                         child: Padding(
