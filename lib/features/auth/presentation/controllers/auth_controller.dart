@@ -19,10 +19,10 @@ class AuthController extends StateNotifier<AuthState> {
     required AuthRepository authRepository,
     required CacheService cacheService,
     required FirebaseAuth firebaseAuth,
-  })  : _authRepository = authRepository,
-        _cacheService = cacheService,
-        _firebaseAuth = firebaseAuth,
-        super(const AuthInitial()) {
+  }) : _authRepository = authRepository,
+       _cacheService = cacheService,
+       _firebaseAuth = firebaseAuth,
+       super(const AuthInitial()) {
     _init();
   }
 
@@ -36,7 +36,28 @@ class AuthController extends StateNotifier<AuthState> {
     });
   }
 
-  Future<void> checkUserProfile(String userId, String? email, String? phone) async {
+  String _authenticationMessage(Object error) {
+    final text = error.toString();
+    if (text.contains('admin-restricted-operation')) {
+      return 'Email/password sign-in is disabled for this Firebase project.';
+    }
+    if (text.contains('operation-not-allowed')) {
+      return 'This sign-in method is not enabled yet. Please contact support.';
+    }
+    if (text.contains('ApiException: 10') || text.contains('DEVELOPER_ERROR')) {
+      return 'Google sign-in is not configured for this Android app yet.';
+    }
+    if (text.contains('network-request-failed')) {
+      return 'Network error. Check your connection and try again.';
+    }
+    return text.replaceFirst('Exception: ', '');
+  }
+
+  Future<void> checkUserProfile(
+    String userId,
+    String? email,
+    String? phone,
+  ) async {
     state = const AuthLoading();
     try {
       final profile = await _authRepository.getUserProfile(userId);
@@ -44,14 +65,22 @@ class AuthController extends StateNotifier<AuthState> {
         await _cacheService.cacheProfile(profile);
         state = Authenticated(profile);
       } else {
-        state = NeedsProfileCreation(userId: userId, email: email, phone: phone);
+        state = NeedsProfileCreation(
+          userId: userId,
+          email: email,
+          phone: phone,
+        );
       }
     } catch (e) {
       final cached = _cacheService.getCachedProfile();
       if (cached != null && cached.id == userId) {
         state = Authenticated(cached);
       } else {
-        state = NeedsProfileCreation(userId: userId, email: email, phone: phone);
+        state = NeedsProfileCreation(
+          userId: userId,
+          email: email,
+          phone: phone,
+        );
       }
     }
   }
@@ -62,7 +91,7 @@ class AuthController extends StateNotifier<AuthState> {
       await _authRepository.signUpWithEmailAndPassword(email, password);
       return true;
     } catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(_authenticationMessage(e));
       return false;
     }
   }
@@ -73,7 +102,7 @@ class AuthController extends StateNotifier<AuthState> {
       await _authRepository.signInWithEmailAndPassword(email, password);
       return true;
     } catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(_authenticationMessage(e));
       return false;
     }
   }
@@ -82,10 +111,12 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthLoading();
     try {
       await _authRepository.signInWithOtp(phone);
+      // For mock/demo mode, we don't need to wait for auth state changes
+      // The verification ID is already set in the repository
       state = const Unauthenticated();
       return true;
     } catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(_authenticationMessage(e));
       return false;
     }
   }
@@ -94,9 +125,12 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthLoading();
     try {
       await _authRepository.verifyOtp(phone, token);
+      // After successful OTP verification, the auth state listener will
+      // automatically handle the transition to Authenticated or NeedsProfileCreation
+      // We don't need to manually set the state here
       return true;
     } catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(_authenticationMessage(e));
       return false;
     }
   }
@@ -107,18 +141,7 @@ class AuthController extends StateNotifier<AuthState> {
       await _authRepository.signInWithGoogle();
       return true;
     } catch (e) {
-      state = AuthError(e.toString());
-      return false;
-    }
-  }
-
-  Future<bool> signInAnonymously() async {
-    state = const AuthLoading();
-    try {
-      await _authRepository.signInAnonymously();
-      return true;
-    } catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(_authenticationMessage(e));
       return false;
     }
   }
@@ -195,7 +218,6 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-
   @override
   void dispose() {
     _authSubscription?.cancel();
@@ -203,13 +225,15 @@ class AuthController extends StateNotifier<AuthState> {
   }
 }
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  final repository = ref.watch(authRepositoryProvider);
-  final cache = ref.watch(cacheServiceProvider);
-  final firebaseAuth = ref.watch(firebaseAuthProvider);
-  return AuthController(
-    authRepository: repository,
-    cacheService: cache,
-    firebaseAuth: firebaseAuth,
-  );
-});
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) {
+    final repository = ref.watch(authRepositoryProvider);
+    final cache = ref.watch(cacheServiceProvider);
+    final firebaseAuth = ref.watch(firebaseAuthProvider);
+    return AuthController(
+      authRepository: repository,
+      cacheService: cache,
+      firebaseAuth: firebaseAuth,
+    );
+  },
+);

@@ -59,26 +59,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   void _showSnack(String msg, {bool success = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: success ? Colors.green[700] : _kPrimary,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.all(16),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: success ? Colors.green[700] : _kPrimary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
   Future<void> _handlePhoneSubmit() async {
     final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      _showSnack('Please enter your phone number');
+    final digitsOnly = phone.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length < 6 || digitsOnly.length > 15) {
+      _showSnack('Enter a valid phone number');
       return;
     }
 
     // Build E.164 formatted number: dialCode + digits
-    final digitsOnly = phone.replaceAll(RegExp(r'\D'), '');
     final fullNumber = '$_selectedDialCode$digitsOnly';
 
     final success = await ref
@@ -92,8 +94,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Future<void> _handleEmailSubmit() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    if (email.isEmpty || password.isEmpty) {
-      _showSnack('Please fill in all fields');
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      _showSnack('Enter a valid email address');
+      return;
+    }
+    if (password.length < 6) {
+      _showSnack('Password must be at least 6 characters');
       return;
     }
     final controller = ref.read(authControllerProvider.notifier);
@@ -143,21 +149,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
 
             // ── Decorative circles ────────────────────────────────────────
-            Positioned(
-              top: -70,
-              right: -70,
-              child: _circle(240, 0.06),
-            ),
-            Positioned(
-              top: 80,
-              left: -50,
-              child: _circle(160, 0.04),
-            ),
-            Positioned(
-              top: 180,
-              right: 20,
-              child: _circle(60, 0.08),
-            ),
+            Positioned(top: -70, right: -70, child: _circle(240, 0.06)),
+            Positioned(top: 80, left: -50, child: _circle(160, 0.04)),
+            Positioned(top: 180, right: 20, child: _circle(60, 0.08)),
 
             // ── Scroll content ────────────────────────────────────────────
             SafeArea(
@@ -173,13 +167,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                     // ── App name ──────────────────────────────────────────
                     Text(
-                      'Suraksha Nepal',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 0.8,
-                      ),
-                    )
+                          'Suraksha Nepal',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 0.8,
+                          ),
+                        )
                         .animate()
                         .fadeIn(delay: 250.ms)
                         .slideY(begin: 0.2, end: 0),
@@ -198,9 +192,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                     // ── White auth card ───────────────────────────────────
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      child: _buildAuthCard(theme, isLoading),
-                    )
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          child: _buildAuthCard(theme, isLoading),
+                        )
                         .animate()
                         .fadeIn(delay: 400.ms, duration: 500.ms)
                         .slideY(begin: 0.08, end: 0),
@@ -237,41 +231,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   Widget _buildLogo() {
     return Hero(
-      tag: 'app_logo',
-      child: Container(
-        width: 104,
-        height: 104,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-            BoxShadow(
-              color: _kPrimary.withValues(alpha: 0.3),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipOval(
-          child: Image.asset(
-            'assets/images/logo.png',
+          tag: 'app_logo',
+          child: Container(
             width: 104,
             height: 104,
-            fit: BoxFit.contain, // contain keeps full logo visible
-            errorBuilder: (_, __, ___) => const Icon(
-              Icons.security_rounded,
-              size: 52,
-              color: _kPrimary,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: _kPrimary.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 104,
+                height: 104,
+                fit: BoxFit.contain, // contain keeps full logo visible
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.security_rounded,
+                  size: 52,
+                  color: _kPrimary,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    )
+        )
         .animate()
         .scale(duration: 700.ms, curve: Curves.easeOutBack)
         .fadeIn(duration: 500.ms);
@@ -298,7 +292,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
               child: SizedBox(
-                height: _tabController.index == 1 && _isSignUp ? 250 : 210,
+                // The phone form needs more than 210px on compact devices.
+                // Keeping the tab view tall enough prevents a RenderFlex overflow
+                // while the outer page remains safely scrollable.
+                height: 250,
                 child: TabBarView(
                   controller: _tabController,
                   children: [
@@ -345,7 +342,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         ? 'Already have an account? Sign In'
                         : "Don't have an account? Register",
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, color: _kPrimary),
+                      fontWeight: FontWeight.bold,
+                      color: _kPrimary,
+                    ),
                   ),
                 );
               },
@@ -354,18 +353,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             // ── Divider ──────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(children: [
-                const Expanded(child: Divider()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('OR',
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelSmall
-                          ?.copyWith(color: Colors.grey)),
-                ),
-                const Expanded(child: Divider()),
-              ]),
+              child: Row(
+                children: [
+                  const Expanded(child: Divider()),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'OR',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelSmall?.copyWith(color: Colors.grey),
+                    ),
+                  ),
+                  const Expanded(child: Divider()),
+                ],
+              ),
             ),
 
             const SizedBox(height: 8),
@@ -375,29 +377,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               isLoading: isLoading,
               onPressed: () =>
                   ref.read(authControllerProvider.notifier).signInWithGoogle(),
-            ),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      final success = await ref
-                          .read(authControllerProvider.notifier)
-                          .signInAnonymously();
-                      if (success && mounted) {
-                        _showSnack('Logged in as Test User', success: true);
-                      }
-                    },
-              icon: const Icon(Icons.developer_mode_rounded, size: 16, color: Colors.grey),
-              label: const Text(
-                'Bypass Authentication (Test Mode)',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
             ),
           ],
         ),
@@ -410,8 +389,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       animation: _tabController,
       builder: (_, __) => Container(
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest
-              .withValues(alpha: 0.45),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.45,
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: TabBar(
@@ -420,8 +400,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           indicatorSize: TabBarIndicatorSize.tab,
           indicator: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            gradient: const LinearGradient(
-                colors: [_kPrimary, _kPrimaryDark]),
+            gradient: const LinearGradient(colors: [_kPrimary, _kPrimaryDark]),
             boxShadow: [
               BoxShadow(
                 color: _kPrimary.withValues(alpha: 0.4),
@@ -433,11 +412,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           labelColor: Colors.white,
           unselectedLabelColor: theme.colorScheme.onSurface,
           labelStyle: const TextStyle(
-              fontWeight: FontWeight.bold, fontSize: 13),
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
           onTap: (_) => setState(() {}),
           tabs: const [
-            Tab(icon: Icon(Icons.phone_android_rounded, size: 17),
-                text: 'Phone OTP'),
+            Tab(
+              icon: Icon(Icons.phone_android_rounded, size: 17),
+              text: 'Phone OTP',
+            ),
             Tab(icon: Icon(Icons.email_outlined, size: 17), text: 'Email'),
           ],
         ),
@@ -448,13 +431,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   // ── Utility ──────────────────────────────────────────────────────────────
 
   Widget _circle(double size, double opacity) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: opacity),
-        ),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: Colors.white.withValues(alpha: opacity),
+    ),
+  );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -510,39 +493,37 @@ class _PhoneTab extends StatelessWidget {
                 dialogTextStyle: const TextStyle(fontSize: 14),
                 searchDecoration: InputDecoration(
                   hintText: 'Search country...',
-                  prefixIcon:
-                      const Icon(Icons.search_rounded, color: _kPrimary),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: _kPrimary,
+                  ),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: _kPrimary, width: 2),
+                    borderSide: const BorderSide(color: _kPrimary, width: 2),
                   ),
                 ),
               ),
 
               // Vertical divider
-              Container(
-                  width: 1,
-                  height: 28,
-                  color: Colors.grey.shade300),
+              Container(width: 1, height: 28, color: Colors.grey.shade300),
 
               // Phone number input
               Expanded(
                 child: TextField(
                   controller: controller,
                   keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly
-                  ],
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: const InputDecoration(
                     hintText: 'Phone number',
-                    hintStyle:
-                        TextStyle(fontSize: 14, color: Colors.grey),
+                    hintStyle: TextStyle(fontSize: 14, color: Colors.grey),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 14),
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
                   ),
                 ),
               ),
@@ -558,26 +539,38 @@ class _PhoneTab extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.public_rounded,
-                    size: 13, color: Colors.grey.shade500),
+                Icon(
+                  Icons.public_rounded,
+                  size: 13,
+                  color: Colors.grey.shade500,
+                ),
                 const SizedBox(width: 4),
-                Text(
-                  'Works with any country ($selectedDialCode selected)',
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade500),
+                Expanded(
+                  child: Text(
+                    'Works with any country ($selectedDialCode selected)',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.info_outline_rounded,
-                    size: 13, color: Colors.amber.shade800),
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 13,
+                  color: Colors.amber.shade800,
+                ),
                 const SizedBox(width: 4),
-                Text(
-                  'Test Mode: Use 9800000000 with verification OTP 123456.',
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.amber.shade800, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    'Demo Mode: Any Nepal mobile number works. Use OTP 123456.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.amber.shade800,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -651,9 +644,7 @@ class _EmailTab extends StatelessWidget {
           const SizedBox(height: 16),
           _PrimaryButton(
             text: isSignUp ? 'Create Account' : 'Sign In',
-            icon: isSignUp
-                ? Icons.person_add_rounded
-                : Icons.login_rounded,
+            icon: isSignUp ? Icons.person_add_rounded : Icons.login_rounded,
             isLoading: isLoading,
             onPressed: onSubmit,
           ),
@@ -680,8 +671,7 @@ class _EmailTab extends StatelessWidget {
         suffixIcon: suffix,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-              const BorderSide(color: Colors.grey, width: 1.5),
+          borderSide: const BorderSide(color: Colors.grey, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -715,21 +705,21 @@ class _PrimaryButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         backgroundColor: _kPrimary,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       icon: isLoading
           ? const SizedBox(
               width: 18,
               height: 18,
               child: CircularProgressIndicator(
-                  strokeWidth: 2.5, color: Colors.white),
+                strokeWidth: 2.5,
+                color: Colors.white,
+              ),
             )
           : Icon(icon, size: 20),
       label: Text(
         isLoading ? 'Please wait...' : text,
-        style: const TextStyle(
-            fontWeight: FontWeight.bold, fontSize: 15),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
       ),
     );
   }
@@ -753,7 +743,8 @@ class _GoogleButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
+            borderRadius: BorderRadius.circular(14),
+          ),
           side: const BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
         ),
         child: Row(
