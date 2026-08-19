@@ -83,9 +83,10 @@
 - [x] Push to GitHub (commit `469824c`)
 
 ## Phase 12 — Police + Fire Brigade Workflows
-- [ ] Fire-specific fields (fire type, explosion risk, gas risk)
-- [ ] Police-specific fields (crime category, people involved)
-- [ ] Reuse dispatch architecture
+- [x] Update `EmergencyRepository` to accept fire-specific parameters (`fireType`, `buildingType`, `explosionRisk`, `gasElectricalRisk`) and police-specific parameter (`peopleAffected`)
+- [x] Integrate Fire Classification dropdowns and Hazard switchers in `FireReportScreen`
+- [x] Integrate People Involved counter in `PoliceReportScreen`
+- [x] Push to GitHub (commit `0550a3a`)
 
 ## Phase 13 — Push Notifications
 - [ ] FCM trigger on dispatch_created (responder)
