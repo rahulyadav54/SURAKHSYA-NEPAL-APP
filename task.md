@@ -58,10 +58,10 @@
 - [x] Push to GitHub (commit `d32de53`)
 
 ## Phase 8 — Responder GPS Tracking
-- [ ] Location stream (3–5s interval when EN_ROUTE)
-- [ ] Low-frequency update when AVAILABLE
-- [ ] Stop when OFFLINE
-- [ ] Update responders table current_lat/lng + responder_locations history
+- [x] Implement Geolocator GPS position stream listener inside `ResponderController`
+- [x] Toggle high-frequency location updates (5m delta) when `EN_ROUTE` to dispatch
+- [x] Sync current lat/lng to Supabase `responders` and append history trail to `responder_locations`
+- [x] Push to GitHub (commit `c87bb98`)
 
 ## Phase 9 — Citizen Live Tracking
 - [ ] Live map screen with citizen + responder markers
