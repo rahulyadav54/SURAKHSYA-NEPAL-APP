@@ -34,9 +34,11 @@
 - [x] Push to GitHub (commit `2904346`)
 
 ## Phase 4 — Responder Dashboard
-- [ ] Active dispatch handling & status management
-- [ ] Incoming dispatch request card (Accept/Reject with timer)
-- [ ] Responder availability states (AVAILABLE, BUSY, EN_ROUTE, OFFLINE)
+- [x] Create `ResponderController` state notifier for availability status and dispatches (`lib/features/responder/presentation/controllers/responder_controller.dart`)
+- [x] Toggle availability status (AVAILABLE/OFFLINE) synced with Supabase
+- [x] Setup Supabase Realtime subscription to receive pending dispatches instantly
+- [x] Build Accept / Reject interactive buttons with a 30s countdown auto-reject timer
+- [x] Push to GitHub (commit `4335c73`)
 
 ## Phase 5 — Emergency Request System
 - [ ] Emergency confirmation screen (Ambulance/Police/Fire)
