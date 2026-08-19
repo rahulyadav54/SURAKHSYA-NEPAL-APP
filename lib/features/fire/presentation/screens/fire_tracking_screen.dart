@@ -1,13 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../../core/widgets/error_widget.dart';
 import '../../../../core/widgets/loading_widget.dart';
-import '../controllers/fire_controller.dart';
-import '../../domain/entities/fire_report.dart';
+import '../../../emergency/presentation/controllers/emergency_controller.dart';
 
 class FireTrackingScreen extends ConsumerStatefulWidget {
   final String reportId;
@@ -23,47 +22,10 @@ class FireTrackingScreen extends ConsumerStatefulWidget {
 
 class _FireTrackingScreenState extends ConsumerState<FireTrackingScreen> {
   GoogleMapController? _mapController;
-  Timer? _simulationTimer;
-  double _simulationProgress = 0.0;
-
-  @override
-  void dispose() {
-    _simulationTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startSimulation() {
-    if (_simulationTimer != null) return;
-    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() {
-        _simulationProgress += 0.05; // 20 steps to reach destination
-        if (_simulationProgress >= 1.0) {
-          _simulationProgress = 1.0;
-          timer.cancel();
-        }
-      });
-    });
-  }
-
-  List<LatLng> _generateOptimizedRoutePoints(LatLng start, LatLng end) {
-    final list = <LatLng>[];
-    list.add(start);
-    final dLat = end.latitude - start.latitude;
-    final dLon = end.longitude - start.longitude;
-    list.add(LatLng(start.latitude + dLat * 0.20, start.longitude + dLon * 0.35));
-    list.add(LatLng(start.latitude + dLat * 0.55, start.longitude + dLon * 0.60));
-    list.add(LatLng(start.latitude + dLat * 0.85, start.longitude + dLon * 0.40));
-    list.add(end);
-    return list;
-  }
 
   @override
   Widget build(BuildContext context) {
-    final reportAsync = ref.watch(activeFireStreamProvider(widget.reportId));
+    final requestAsync = ref.watch(emergencyRequestStreamProvider(widget.reportId));
 
     return Scaffold(
       appBar: AppBar(
@@ -75,21 +37,33 @@ class _FireTrackingScreenState extends ConsumerState<FireTrackingScreen> {
           },
         ),
       ),
-      body: reportAsync.when(
-        data: (report) {
-          final targetLatLng = LatLng(report.latitude, report.longitude);
-          
-          // Fixed mock starting position for fire engine (approx 1.2 km offset)
-          final double startLat = report.latitude + 0.009;
-          final double startLng = report.longitude - 0.008;
+      body: requestAsync.when(
+        data: (request) {
+          final targetLat = request['latitude'] as double;
+          final targetLng = request['longitude'] as double;
+          final targetLatLng = LatLng(targetLat, targetLng);
 
-          // Compute interpolated dynamic vehicle coordinates
-          final currentLat = startLat + (report.latitude - startLat) * _simulationProgress;
-          final currentLng = startLng + (report.longitude - startLng) * _simulationProgress;
-          final fireTruckLatLng = LatLng(currentLat, currentLng);
+          final responder = request['responders'] as Map<String, dynamic>?;
+          final profile = responder?['profiles'] as Map<String, dynamic>?;
+          final vehicle = responder?['vehicles'] as Map<String, dynamic>?;
 
-          // Start active route simulation
-          _startSimulation();
+          LatLng? responderLatLng;
+          double distanceKm = 0.0;
+          int etaMinutes = 10;
+
+          if (responder != null) {
+            final double? respLat = responder['current_latitude'] as double?;
+            final double? respLng = responder['current_longitude'] as double?;
+            if (respLat != null && respLng != null) {
+              responderLatLng = LatLng(respLat, respLng);
+              
+              final distanceMeters = Geolocator.distanceBetween(
+                respLat, respLng, targetLat, targetLng
+              );
+              distanceKm = distanceMeters / 1000.0;
+              etaMinutes = (distanceKm * 2.0 + 2.0).ceil();
+            }
+          }
 
           final Set<Marker> markers = {
             Marker(
@@ -98,39 +72,48 @@ class _FireTrackingScreenState extends ConsumerState<FireTrackingScreen> {
               infoWindow: const InfoWindow(title: 'Fire Location'),
               icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
             ),
-            Marker(
-              markerId: const MarkerId('fire_truck'),
-              position: fireTruckLatLng,
-              infoWindow: const InfoWindow(title: 'Fire Engine Unit - BA 1 PA 7777', snippet: 'Responding Crew: Station A'),
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-            ),
           };
 
-          final routePoints = _generateOptimizedRoutePoints(fireTruckLatLng, targetLatLng);
-          final Set<Polyline> polylines = {
-            Polyline(
-              polylineId: const PolylineId('fire_route'),
-              points: routePoints,
-              color: Colors.orange.shade800,
-              width: 6,
-              jointType: JointType.round,
-              startCap: Cap.roundCap,
-              endCap: Cap.roundCap,
-            ),
-          };
+          final Set<Polyline> polylines = {};
 
-          if (_mapController != null) {
-            final bounds = LatLngBounds(
-              southwest: LatLng(
-                targetLatLng.latitude < fireTruckLatLng.latitude ? targetLatLng.latitude : fireTruckLatLng.latitude,
-                targetLatLng.longitude < fireTruckLatLng.longitude ? targetLatLng.longitude : fireTruckLatLng.longitude,
-              ),
-              northeast: LatLng(
-                targetLatLng.latitude > fireTruckLatLng.latitude ? targetLatLng.latitude : fireTruckLatLng.latitude,
-                targetLatLng.longitude > fireTruckLatLng.longitude ? targetLatLng.longitude : fireTruckLatLng.longitude,
+          if (responderLatLng != null) {
+            markers.add(
+              Marker(
+                markerId: const MarkerId('fire_truck'),
+                position: responderLatLng,
+                infoWindow: InfoWindow(
+                  title: '${profile?['full_name'] ?? 'Fire Brigade Unit'}',
+                  snippet: '${vehicle?['vehicle_type'] ?? 'Fire Tender'} (${vehicle?['vehicle_number'] ?? 'N/A'})',
+                ),
+                icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
               ),
             );
-            _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80.0));
+
+            polylines.add(
+              Polyline(
+                polylineId: const PolylineId('fire_route'),
+                points: [responderLatLng, targetLatLng],
+                color: Colors.orange.shade800,
+                width: 6,
+                jointType: JointType.round,
+                startCap: Cap.roundCap,
+                endCap: Cap.roundCap,
+              ),
+            );
+
+            if (_mapController != null) {
+              final bounds = LatLngBounds(
+                southwest: LatLng(
+                  targetLat < responderLatLng.latitude ? targetLat : responderLatLng.latitude,
+                  targetLng < responderLatLng.longitude ? targetLng : responderLatLng.longitude,
+                ),
+                northeast: LatLng(
+                  targetLat > responderLatLng.latitude ? targetLat : responderLatLng.latitude,
+                  targetLng > responderLatLng.longitude ? targetLng : responderLatLng.longitude,
+                ),
+              );
+              _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80.0));
+            }
           }
 
           return Stack(
@@ -153,41 +136,45 @@ class _FireTrackingScreenState extends ConsumerState<FireTrackingScreen> {
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _buildStatusCard(context, report),
+                child: _buildStatusCard(context, request, distanceKm, etaMinutes),
               ),
             ],
           );
         },
         loading: () => const SurakshaLoading(size: 60),
         error: (err, stack) => SurakshaErrorWidget(
-          message: 'Failed to retrieve updates: ${err.toString()}',
-          onRetry: () => ref.invalidate(activeFireStreamProvider(widget.reportId)),
+          message: 'Failed to retrieve updates: $err',
+          onRetry: () => ref.invalidate(emergencyRequestStreamProvider(widget.reportId)),
         ),
       ),
     );
   }
 
-  Widget _buildStatusCard(BuildContext context, FireReport report) {
+  Widget _buildStatusCard(
+    BuildContext context,
+    Map<String, dynamic> request,
+    double distanceKm,
+    int etaMinutes,
+  ) {
     final theme = Theme.of(context);
-    final status = report.status;
+    final status = request['status'] as String? ?? 'REQUESTED';
+    final responder = request['responders'] as Map<String, dynamic>?;
 
     int currentStep = 0;
-    if (status == 'DISPATCHED') {
+    if (status == 'ACCEPTED' || status == 'DISPATCHING') {
       currentStep = 1;
-    } else if (status == 'ACTIVE') {
+    } else if (status == 'EN_ROUTE' || status == 'ARRIVED') {
       currentStep = 2;
-    } else if (status == 'RESOLVED') {
+    } else if (status == 'COMPLETED') {
       currentStep = 3;
     }
 
     final steps = [
       {'title': 'Reported', 'subtitle': 'Logged'},
       {'title': 'Dispatched', 'subtitle': 'En route'},
-      {'title': 'Active', 'subtitle': 'Fighting'},
+      {'title': 'Active', 'subtitle': 'Responding'},
       {'title': 'Resolved', 'subtitle': 'Extinguished'},
     ];
-
-    final etaMin = (10 * (1.0 - _simulationProgress)).toStringAsFixed(0);
 
     return Card(
       elevation: 6,
@@ -213,7 +200,9 @@ class _FireTrackingScreenState extends ConsumerState<FireTrackingScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _simulationProgress < 1.0 ? 'Fire Truck arriving in $etaMin mins' : 'Fire Truck arrived on site',
+                      status == 'ARRIVED'
+                          ? 'Fire Truck arrived on site'
+                          : (responder != null ? 'Arriving in $etaMinutes mins' : 'Awaiting responder match...'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.primary,
@@ -228,7 +217,7 @@ class _FireTrackingScreenState extends ConsumerState<FireTrackingScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Severity: ${report.aiPredictedSeverity}',
+                    'Severity: ${request['severity'] ?? 'HIGH'}',
                     style: TextStyle(
                       color: theme.colorScheme.onPrimaryContainer,
                       fontSize: 10,
@@ -248,7 +237,7 @@ class _FireTrackingScreenState extends ConsumerState<FireTrackingScreen> {
                 final isPassed = index <= currentStep;
                 final isCurrent = index == currentStep;
                 final color = isPassed 
-                    ? (status == 'RESOLVED' ? Colors.green : theme.colorScheme.primary) 
+                    ? (status == 'COMPLETED' ? Colors.green : theme.colorScheme.primary) 
                     : theme.colorScheme.outlineVariant;
 
                 return Expanded(
@@ -296,7 +285,7 @@ class _FireTrackingScreenState extends ConsumerState<FireTrackingScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    report.description.isNotEmpty ? report.description : 'No description provided.',
+                    '${request['description'] ?? 'No description provided.'}',
                     style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
                   ),
                 ),

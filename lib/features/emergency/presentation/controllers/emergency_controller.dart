@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/network/supabase_providers.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../domain/entities/emergency_event.dart';
@@ -159,3 +162,94 @@ final emergencyControllerProvider = StateNotifierProvider<EmergencyController, E
 });
 
 final homeTabIndexProvider = StateProvider<int>((ref) => 0);
+
+/// StreamProvider that listens to updates on a specific emergency request in real-time
+final emergencyRequestStreamProvider = StreamProvider.family.autoDispose<Map<String, dynamic>, String>((ref, requestId) {
+  final supabase = ref.watch(supabaseClientProvider);
+  final controller = StreamController<Map<String, dynamic>>();
+
+  Future<void> fetchLatest() async {
+    try {
+      final data = await supabase
+          .from('emergency_requests')
+          .select('*, responders(*, profiles(*), vehicles(*))')
+          .eq('id', requestId)
+          .maybeSingle();
+      if (data != null && !controller.isClosed) {
+        controller.add(data);
+      }
+    } catch (_) {}
+  }
+
+  fetchLatest();
+
+  final channel = supabase
+      .channel('public:emergency_requests_track:$requestId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'emergency_requests',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'id',
+          value: requestId,
+        ),
+        callback: (payload) {
+          fetchLatest();
+        },
+      )
+      .subscribe();
+
+  ref.onDispose(() {
+    channel.unsubscribe();
+    controller.close();
+  });
+
+  return controller.stream;
+});
+
+/// StreamProvider that listens to GPS updates of a specific responder in real-time
+final responderLocationStreamProvider = StreamProvider.family.autoDispose<Map<String, dynamic>?, String>((ref, responderId) {
+  final supabase = ref.watch(supabaseClientProvider);
+  final controller = StreamController<Map<String, dynamic>?>();
+
+  Future<void> fetchLatest() async {
+    try {
+      final data = await supabase
+          .from('responders')
+          .select('current_latitude, current_longitude, current_heading, availability_status')
+          .eq('id', responderId)
+          .maybeSingle();
+      if (data != null && !controller.isClosed) {
+        controller.add(data);
+      }
+    } catch (_) {}
+  }
+
+  fetchLatest();
+
+  final channel = supabase
+      .channel('public:responders_loc:$responderId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'responders',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'id',
+          value: responderId,
+        ),
+        callback: (payload) {
+          fetchLatest();
+        },
+      )
+      .subscribe();
+
+  ref.onDispose(() {
+    channel.unsubscribe();
+    controller.close();
+  });
+
+  return controller.stream;
+});
+

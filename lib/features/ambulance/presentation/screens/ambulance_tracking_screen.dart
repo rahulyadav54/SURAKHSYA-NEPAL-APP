@@ -1,13 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../../core/widgets/error_widget.dart';
 import '../../../../core/widgets/loading_widget.dart';
-import '../controllers/ambulance_controller.dart';
-import '../../domain/entities/ambulance_request.dart';
+import '../../../emergency/presentation/controllers/emergency_controller.dart';
 
 class AmbulanceTrackingScreen extends ConsumerStatefulWidget {
   final String requestId;
@@ -23,53 +22,11 @@ class AmbulanceTrackingScreen extends ConsumerStatefulWidget {
 
 class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScreen> {
   GoogleMapController? _mapController;
-  Timer? _simulationTimer;
-  double _simulationProgress = 0.0;
-
-  @override
-  void dispose() {
-    _simulationTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startSimulation() {
-    if (_simulationTimer != null) return;
-    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() {
-        _simulationProgress += 0.05; // 20 steps to reach user
-        if (_simulationProgress >= 1.0) {
-          _simulationProgress = 1.0;
-          timer.cancel();
-        }
-      });
-    });
-  }
-
-  /// Mocks a street-aligned optimized route polyline using intermediate nodes
-  List<LatLng> _generateOptimizedRoutePoints(LatLng start, LatLng end) {
-    final list = <LatLng>[];
-    list.add(start);
-
-    final dLat = end.latitude - start.latitude;
-    final dLon = end.longitude - start.longitude;
-
-    // Add intermediate nodes to simulate street turns
-    list.add(LatLng(start.latitude + dLat * 0.25, start.longitude + dLon * 0.15));
-    list.add(LatLng(start.latitude + dLat * 0.50, start.longitude + dLon * 0.70));
-    list.add(LatLng(start.latitude + dLat * 0.75, start.longitude + dLon * 0.40));
-
-    list.add(end);
-    return list;
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final requestAsync = ref.watch(activeRequestStreamProvider(widget.requestId));
+    final requestAsync = ref.watch(emergencyRequestStreamProvider(widget.requestId));
 
     return Scaffold(
       appBar: AppBar(
@@ -83,52 +40,64 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
       ),
       body: requestAsync.when(
         data: (request) {
-          final latLng = LatLng(request.pickupLatitude, request.pickupLongitude);
-          
+          final citizenLat = request['latitude'] as double;
+          final citizenLng = request['longitude'] as double;
+          final citizenLatLng = LatLng(citizenLat, citizenLng);
+
+          final responder = request['responders'] as Map<String, dynamic>?;
+          final profile = responder?['profiles'] as Map<String, dynamic>?;
+          final vehicle = responder?['vehicles'] as Map<String, dynamic>?;
+
+          LatLng? responderLatLng;
+          double distanceKm = 0.0;
+          int etaMinutes = 10;
+
+          if (responder != null) {
+            final double? respLat = responder['current_latitude'] as double?;
+            final double? respLng = responder['current_longitude'] as double?;
+            if (respLat != null && respLng != null) {
+              responderLatLng = LatLng(respLat, respLng);
+              
+              // Calculate real physical distance in kilometers
+              final distanceMeters = Geolocator.distanceBetween(
+                respLat, respLng, citizenLat, citizenLng
+              );
+              distanceKm = distanceMeters / 1000.0;
+              
+              // Estimate arrival time (approx 2 minutes per km + 2 minutes base buffers)
+              etaMinutes = (distanceKm * 2.0 + 2.0).ceil();
+            }
+          }
+
           final Set<Marker> markers = {
             Marker(
-              markerId: const MarkerId('pickup'),
-              position: latLng,
-              infoWindow: const InfoWindow(title: 'Your Location (तपाईंको स्थान)'),
+              markerId: const MarkerId('citizen'),
+              position: citizenLatLng,
+              infoWindow: const InfoWindow(title: 'My Position', snippet: 'Awaiting assistance here'),
               icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
             ),
           };
 
           final Set<Polyline> polylines = {};
-          LatLng? ambulanceLatLng;
 
-          if (request.ambulance != null) {
-            final startLat = request.ambulance!.latitude;
-            final startLng = request.ambulance!.longitude;
-
-            // Interpolate position based on progress
-            final currentLat = startLat + (latLng.latitude - startLat) * _simulationProgress;
-            final currentLng = startLng + (latLng.longitude - startLng) * _simulationProgress;
-            ambulanceLatLng = LatLng(currentLat, currentLng);
-
-            _startSimulation();
-            
-            // Generate optimized route
-            final routePoints = _generateOptimizedRoutePoints(ambulanceLatLng, latLng);
-
-            // Add ambulance marker
+          if (responderLatLng != null) {
             markers.add(
               Marker(
-                markerId: const MarkerId('ambulance'),
-                position: ambulanceLatLng,
+                markerId: const MarkerId('responder'),
+                position: responderLatLng,
                 infoWindow: InfoWindow(
-                  title: 'Ambulance: ${request.ambulance!.driverName}',
-                  snippet: request.ambulance!.licensePlate,
+                  title: '${profile?['full_name'] ?? 'Responder Ambulance'}',
+                  snippet: '${vehicle?['vehicle_type'] ?? 'Ambulance'} (${vehicle?['vehicle_number'] ?? 'N/A'})',
                 ),
                 icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
               ),
             );
 
-            // Add optimized Polyline route overlay
+            // Connect citizen and responder with active route
             polylines.add(
               Polyline(
-                polylineId: const PolylineId('optimized_route'),
-                points: routePoints,
+                polylineId: const PolylineId('active_dispatch_route'),
+                points: [responderLatLng, citizenLatLng],
                 color: theme.colorScheme.primary,
                 width: 6,
                 jointType: JointType.round,
@@ -137,15 +106,16 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
               ),
             );
 
+            // Re-adjust camera bounds dynamically to include both citizen and responder
             if (_mapController != null) {
               final bounds = LatLngBounds(
                 southwest: LatLng(
-                  latLng.latitude < ambulanceLatLng.latitude ? latLng.latitude : ambulanceLatLng.latitude,
-                  latLng.longitude < ambulanceLatLng.longitude ? latLng.longitude : ambulanceLatLng.longitude,
+                  citizenLat < responderLatLng.latitude ? citizenLat : responderLatLng.latitude,
+                  citizenLng < responderLatLng.longitude ? citizenLng : responderLatLng.longitude,
                 ),
                 northeast: LatLng(
-                  latLng.latitude > ambulanceLatLng.latitude ? latLng.latitude : ambulanceLatLng.latitude,
-                  latLng.longitude > ambulanceLatLng.longitude ? latLng.longitude : ambulanceLatLng.longitude,
+                  citizenLat > responderLatLng.latitude ? citizenLat : responderLatLng.latitude,
+                  citizenLng > responderLatLng.longitude ? citizenLng : responderLatLng.longitude,
                 ),
               );
               _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80.0));
@@ -156,7 +126,7 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
             children: [
               GoogleMap(
                 initialCameraPosition: CameraPosition(
-                  target: latLng,
+                  target: citizenLatLng,
                   zoom: 14.5,
                 ),
                 markers: markers,
@@ -168,54 +138,56 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                 },
               ),
 
-              if (request.status == 'PENDING')
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.03),
-                    ),
-                  ),
-                ),
-
               Positioned(
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _buildTrackingDetailsCard(context, request),
+                child: _buildTrackingCard(context, request, distanceKm, etaMinutes),
               ),
             ],
           );
         },
         loading: () => const SurakshaLoading(size: 60),
         error: (err, stack) => SurakshaErrorWidget(
-          message: 'Failed to retrieve live updates: ${err.toString()}',
-          onRetry: () => ref.invalidate(activeRequestStreamProvider(widget.requestId)),
+          message: 'Failed to connect live GPS tracker: $err',
+          onRetry: () => ref.invalidate(emergencyRequestStreamProvider(widget.requestId)),
         ),
       ),
     );
   }
 
-  Widget _buildTrackingDetailsCard(BuildContext context, AmbulanceRequest request) {
+  Widget _buildTrackingCard(
+    BuildContext context,
+    Map<String, dynamic> request,
+    double distanceKm,
+    int etaMinutes,
+  ) {
     final theme = Theme.of(context);
-    final status = request.status;
-    final hasAmbulance = request.ambulance != null;
+    final status = request['status'] as String? ?? 'REQUESTED';
+    final responder = request['responders'] as Map<String, dynamic>?;
+    final profile = responder?['profiles'] as Map<String, dynamic>?;
+    final vehicle = responder?['vehicles'] as Map<String, dynamic>?;
 
     Color statusColor = Colors.orange;
-    String statusTitleNp = 'सम्पर्क स्थापित गरिदै... (Connecting...)';
-    String statusDesc = 'Dispatch center is matching you with nearby ambulance units.';
+    String statusTitle = 'Finding Nearest Ambulance...';
+    String statusDesc = 'Dispatch centers are matching your distress alert with emergency units.';
 
-    if (status == 'ASSIGNED') {
+    if (status == 'ACCEPTED' || status == 'DISPATCHING') {
+      statusColor = Colors.blue;
+      statusTitle = 'Rescue Unit Assigned';
+      statusDesc = 'An ambulance responder has accepted and is preparing to depart.';
+    } else if (status == 'EN_ROUTE') {
       statusColor = theme.colorScheme.primary;
-      statusTitleNp = 'एम्बुलेन्स प्रस्थान गर्यो (Ambulance Dispatched)';
-      statusDesc = 'Ambulance is heading towards your current coordinates.';
-    } else if (status == 'PICKED_UP') {
-      statusColor = Colors.purple;
-      statusTitleNp = 'बिरामी पिकअप गरियो (Patient Picked Up)';
-      statusDesc = 'In transit to assigned emergency hospital center.';
-    } else if (status == 'COMPLETED') {
+      statusTitle = 'Ambulance En Route';
+      statusDesc = 'Ambulance is navigating actively towards your current location.';
+    } else if (status == 'ARRIVED') {
       statusColor = Colors.green;
-      statusTitleNp = 'उपचार केन्द्र पुग्यो (Completed)';
-      statusDesc = 'Arrived at the emergency medical facility.';
+      statusTitle = 'Ambulance Arrived (आइपुग्यो)';
+      statusDesc = 'The rescue team has arrived at your location. Look out for them!';
+    } else if (status == 'COMPLETED') {
+      statusColor = Colors.teal;
+      statusTitle = 'Mission Completed';
+      statusDesc = 'Successfully reached the emergency hospital center.';
     }
 
     return Card(
@@ -247,7 +219,7 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        statusTitleNp,
+                        statusTitle,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: statusColor,
@@ -265,7 +237,6 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
             ),
             const Divider(height: 24),
 
-            // Live ETA or Hospital Details
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -278,9 +249,9 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      request.etaMinutes != null 
-                          ? '${(request.etaMinutes! * (1.0 - _simulationProgress)).toStringAsFixed(0)} mins' 
-                          : '${(12 * (1.0 - _simulationProgress)).toStringAsFixed(0)} mins',
+                      status == 'ARRIVED'
+                          ? 'Arrived'
+                          : (responder != null ? '$etaMinutes mins' : 'Calculating...'),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.primary,
@@ -292,12 +263,12 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'ASSIGNED HOSPITAL',
+                      'DISTANCE',
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      request.hospitalName ?? 'Assigning hospital...',
+                      responder != null ? '${distanceKm.toStringAsFixed(1)} km away' : 'Matching...',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -307,7 +278,7 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
               ],
             ),
 
-            if (hasAmbulance) ...[
+            if (responder != null) ...[
               const Divider(height: 24),
               Row(
                 children: [
@@ -315,7 +286,7 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                     radius: 22,
                     backgroundColor: theme.colorScheme.primaryContainer,
                     child: Text(
-                      request.ambulance!.driverName.substring(0, 1).toUpperCase(),
+                      (profile?['full_name'] as String? ?? 'A').substring(0, 1).toUpperCase(),
                       style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -325,12 +296,12 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          request.ambulance!.driverName,
+                          profile?['full_name'] as String? ?? 'Guest Driver',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          request.ambulance!.licensePlate,
+                          '${vehicle?['vehicle_number'] ?? 'N/A'} - ${vehicle?['vehicle_type'] ?? 'Emergency Unit'}',
                           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                         ),
                       ],
@@ -343,9 +314,12 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                       foregroundColor: theme.colorScheme.onPrimaryContainer,
                     ),
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Dialing ${request.ambulance!.phone}')),
-                      );
+                      final phone = profile?['phone'];
+                      if (phone != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Dialing responder: $phone')),
+                        );
+                      }
                     },
                   ),
                 ],

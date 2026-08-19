@@ -1,13 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../../core/widgets/error_widget.dart';
 import '../../../../core/widgets/loading_widget.dart';
-import '../controllers/police_controller.dart';
-import '../../domain/entities/police_report.dart';
+import '../../../emergency/presentation/controllers/emergency_controller.dart';
 
 class PoliceTrackingScreen extends ConsumerStatefulWidget {
   final String reportId;
@@ -23,47 +22,10 @@ class PoliceTrackingScreen extends ConsumerStatefulWidget {
 
 class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
   GoogleMapController? _mapController;
-  Timer? _simulationTimer;
-  double _simulationProgress = 0.0;
-
-  @override
-  void dispose() {
-    _simulationTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startSimulation() {
-    if (_simulationTimer != null) return;
-    _simulationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() {
-        _simulationProgress += 0.05; // 20 steps to reach destination
-        if (_simulationProgress >= 1.0) {
-          _simulationProgress = 1.0;
-          timer.cancel();
-        }
-      });
-    });
-  }
-
-  List<LatLng> _generateOptimizedRoutePoints(LatLng start, LatLng end) {
-    final list = <LatLng>[];
-    list.add(start);
-    final dLat = end.latitude - start.latitude;
-    final dLon = end.longitude - start.longitude;
-    list.add(LatLng(start.latitude + dLat * 0.30, start.longitude + dLon * 0.20));
-    list.add(LatLng(start.latitude + dLat * 0.60, start.longitude + dLon * 0.75));
-    list.add(LatLng(start.latitude + dLat * 0.80, start.longitude + dLon * 0.45));
-    list.add(end);
-    return list;
-  }
 
   @override
   Widget build(BuildContext context) {
-    final reportAsync = ref.watch(activePoliceStreamProvider(widget.reportId));
+    final requestAsync = ref.watch(emergencyRequestStreamProvider(widget.reportId));
 
     return Scaffold(
       appBar: AppBar(
@@ -75,62 +37,83 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
           },
         ),
       ),
-      body: reportAsync.when(
-        data: (report) {
-          final targetLatLng = LatLng(report.latitude, report.longitude);
-          
-          // Fixed mock starting position for police unit (approx 1 km offset)
-          final double startLat = report.latitude - 0.008;
-          final double startLng = report.longitude + 0.007;
+      body: requestAsync.when(
+        data: (request) {
+          final targetLat = request['latitude'] as double;
+          final targetLng = request['longitude'] as double;
+          final targetLatLng = LatLng(targetLat, targetLng);
 
-          // Compute interpolated dynamic vehicle coordinates
-          final currentLat = startLat + (report.latitude - startLat) * _simulationProgress;
-          final currentLng = startLng + (report.longitude - startLng) * _simulationProgress;
-          final policeLatLng = LatLng(currentLat, currentLng);
+          final responder = request['responders'] as Map<String, dynamic>?;
+          final profile = responder?['profiles'] as Map<String, dynamic>?;
+          final vehicle = responder?['vehicles'] as Map<String, dynamic>?;
 
-          // Start active route simulation
-          _startSimulation();
+          LatLng? responderLatLng;
+          double distanceKm = 0.0;
+          int etaMinutes = 10;
+
+          if (responder != null) {
+            final double? respLat = responder['current_latitude'] as double?;
+            final double? respLng = responder['current_longitude'] as double?;
+            if (respLat != null && respLng != null) {
+              responderLatLng = LatLng(respLat, respLng);
+              
+              final distanceMeters = Geolocator.distanceBetween(
+                respLat, respLng, targetLat, targetLng
+              );
+              distanceKm = distanceMeters / 1000.0;
+              etaMinutes = (distanceKm * 2.0 + 2.0).ceil();
+            }
+          }
 
           final Set<Marker> markers = {
             Marker(
               markerId: const MarkerId('pickup'),
               position: targetLatLng,
-              infoWindow: const InfoWindow(title: 'Emergency Spot'),
+              infoWindow: const InfoWindow(title: 'Emergency Location'),
               icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
             ),
-            Marker(
-              markerId: const MarkerId('police_unit'),
-              position: policeLatLng,
-              infoWindow: const InfoWindow(title: 'Police Patrol Unit - BA 1 PA 9999', snippet: 'Responding Officer: Inspector Kumar'),
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-            ),
           };
 
-          final routePoints = _generateOptimizedRoutePoints(policeLatLng, targetLatLng);
-          final Set<Polyline> polylines = {
-            Polyline(
-              polylineId: const PolylineId('police_route'),
-              points: routePoints,
-              color: Colors.blue.shade700,
-              width: 6,
-              jointType: JointType.round,
-              startCap: Cap.roundCap,
-              endCap: Cap.roundCap,
-            ),
-          };
+          final Set<Polyline> polylines = {};
 
-          if (_mapController != null) {
-            final bounds = LatLngBounds(
-              southwest: LatLng(
-                targetLatLng.latitude < policeLatLng.latitude ? targetLatLng.latitude : policeLatLng.latitude,
-                targetLatLng.longitude < policeLatLng.longitude ? targetLatLng.longitude : policeLatLng.longitude,
-              ),
-              northeast: LatLng(
-                targetLatLng.latitude > policeLatLng.latitude ? targetLatLng.latitude : policeLatLng.latitude,
-                targetLatLng.longitude > policeLatLng.longitude ? targetLatLng.longitude : policeLatLng.longitude,
+          if (responderLatLng != null) {
+            markers.add(
+              Marker(
+                markerId: const MarkerId('police_unit'),
+                position: responderLatLng,
+                infoWindow: InfoWindow(
+                  title: '${profile?['full_name'] ?? 'Police Patrol Unit'}',
+                  snippet: '${vehicle?['vehicle_type'] ?? 'Patrol Car'} (${vehicle?['vehicle_number'] ?? 'N/A'})',
+                ),
+                icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
               ),
             );
-            _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80.0));
+
+            polylines.add(
+              Polyline(
+                polylineId: const PolylineId('police_route'),
+                points: [responderLatLng, targetLatLng],
+                color: Colors.blue.shade700,
+                width: 6,
+                jointType: JointType.round,
+                startCap: Cap.roundCap,
+                endCap: Cap.roundCap,
+              ),
+            );
+
+            if (_mapController != null) {
+              final bounds = LatLngBounds(
+                southwest: LatLng(
+                  targetLat < responderLatLng.latitude ? targetLat : responderLatLng.latitude,
+                  targetLng < responderLatLng.longitude ? targetLng : responderLatLng.longitude,
+                ),
+                northeast: LatLng(
+                  targetLat > responderLatLng.latitude ? targetLat : responderLatLng.latitude,
+                  targetLng > responderLatLng.longitude ? targetLng : responderLatLng.longitude,
+                ),
+              );
+              _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80.0));
+            }
           }
 
           return Stack(
@@ -153,30 +136,36 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _buildStatusCard(context, report),
+                child: _buildStatusCard(context, request, distanceKm, etaMinutes),
               ),
             ],
           );
         },
         loading: () => const SurakshaLoading(size: 60),
         error: (err, stack) => SurakshaErrorWidget(
-          message: 'Failed to retrieve updates: ${err.toString()}',
-          onRetry: () => ref.invalidate(activePoliceStreamProvider(widget.reportId)),
+          message: 'Failed to retrieve updates: $err',
+          onRetry: () => ref.invalidate(emergencyRequestStreamProvider(widget.reportId)),
         ),
       ),
     );
   }
 
-  Widget _buildStatusCard(BuildContext context, PoliceReport report) {
+  Widget _buildStatusCard(
+    BuildContext context,
+    Map<String, dynamic> request,
+    double distanceKm,
+    int etaMinutes,
+  ) {
     final theme = Theme.of(context);
-    final status = report.status;
+    final status = request['status'] as String? ?? 'REQUESTED';
+    final responder = request['responders'] as Map<String, dynamic>?;
 
     int currentStep = 0;
-    if (status == 'DISPATCHED') {
+    if (status == 'ACCEPTED' || status == 'DISPATCHING') {
       currentStep = 1;
-    } else if (status == 'ACTIVE') {
+    } else if (status == 'EN_ROUTE' || status == 'ARRIVED') {
       currentStep = 2;
-    } else if (status == 'RESOLVED') {
+    } else if (status == 'COMPLETED') {
       currentStep = 3;
     }
 
@@ -186,8 +175,6 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
       {'title': 'Active', 'subtitle': 'Unit on scene'},
       {'title': 'Resolved', 'subtitle': 'Cleared'},
     ];
-
-    final etaMin = (8 * (1.0 - _simulationProgress)).toStringAsFixed(0);
 
     return Card(
       elevation: 6,
@@ -213,7 +200,9 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _simulationProgress < 1.0 ? 'Police Unit arriving in $etaMin mins' : 'Police Unit arrived on site',
+                      status == 'ARRIVED'
+                          ? 'Police Unit arrived on site'
+                          : (responder != null ? 'Arriving in $etaMinutes mins' : 'Awaiting responder match...'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.primary,
@@ -228,7 +217,7 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    report.category.toUpperCase(),
+                    '${request['emergency_type'] ?? 'Emergency'}'.toUpperCase(),
                     style: TextStyle(
                       color: theme.colorScheme.onPrimaryContainer,
                       fontSize: 10,
@@ -248,7 +237,7 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
                 final isPassed = index <= currentStep;
                 final isCurrent = index == currentStep;
                 final color = isPassed 
-                    ? (status == 'RESOLVED' ? Colors.green : theme.colorScheme.primary) 
+                    ? (status == 'COMPLETED' ? Colors.green : theme.colorScheme.primary) 
                     : theme.colorScheme.outlineVariant;
 
                 return Expanded(
@@ -296,7 +285,7 @@ class _PoliceTrackingScreenState extends ConsumerState<PoliceTrackingScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    report.description.isNotEmpty ? report.description : 'No description provided.',
+                    '${request['description'] ?? 'No description provided.'}',
                     style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
                   ),
                 ),
