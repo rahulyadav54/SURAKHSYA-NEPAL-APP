@@ -15,7 +15,6 @@ class CommandCenterScreen extends ConsumerStatefulWidget {
 class _CommandCenterScreenState extends ConsumerState<CommandCenterScreen> {
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isDesktop = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
@@ -165,7 +164,7 @@ class _CommandCenterScreenState extends ConsumerState<CommandCenterScreen> {
             const SizedBox(height: 4),
             Text(type, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 2),
-            Text(location, style: const TextStyle(fontSize: 12, color: Colors.black70)),
+            Text(location, style: TextStyle(fontSize: 12, color: Colors.black87)),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

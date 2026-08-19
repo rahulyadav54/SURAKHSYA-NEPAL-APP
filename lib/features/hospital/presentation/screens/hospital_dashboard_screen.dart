@@ -106,7 +106,7 @@ class _HospitalDashboardScreenState extends ConsumerState<HospitalDashboardScree
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('General Beds Available', style: TextStyle(color: Colors.black70, fontSize: 13)),
+                              Text('General Beds Available', style: TextStyle(color: Colors.black87, fontSize: 13)),
                               Text('$_availableBeds Beds', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                             ],
                           ),
@@ -131,7 +131,7 @@ class _HospitalDashboardScreenState extends ConsumerState<HospitalDashboardScree
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('ICU Beds Available', style: TextStyle(color: Colors.black70, fontSize: 13)),
+                              Text('ICU Beds Available', style: TextStyle(color: Colors.black87, fontSize: 13)),
                               Text('$_icuBeds ICU Beds', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
                             ],
                           ),
@@ -194,7 +194,7 @@ class _HospitalDashboardScreenState extends ConsumerState<HospitalDashboardScree
                       const SizedBox(height: 12),
                       const Text('Patient: Road Traffic Injury', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       const SizedBox(height: 4),
-                      const Text('Severity: CRITICAL | Blood Needed: O+ve', style: TextStyle(color: Colors.black70, fontSize: 13)),
+                      Text('Severity: CRITICAL | Blood Needed: O+ve', style: TextStyle(color: Colors.black87, fontSize: 13)),
                       const SizedBox(height: 16),
                       Row(
                         children: [

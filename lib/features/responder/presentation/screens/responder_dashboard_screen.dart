@@ -201,9 +201,9 @@ class _ResponderDashboardScreenState extends ConsumerState<ResponderDashboardScr
                               ),
                             ),
                           ),
-                          const Text(
+                          Text(
                             'ETA: 5 mins',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black80),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                           ),
                         ],
                       ),
@@ -213,14 +213,14 @@ class _ResponderDashboardScreenState extends ConsumerState<ResponderDashboardScr
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.location_on_rounded, color: AppTheme.primaryColor, size: 18),
-                          SizedBox(width: 4),
+                          const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor, size: 18),
+                          const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               'Lakeside Chowk, Pokhara (2.1 km away)',
-                              style: TextStyle(color: Colors.black70),
+                              style: TextStyle(color: Colors.black87),
                             ),
                           ),
                         ],
