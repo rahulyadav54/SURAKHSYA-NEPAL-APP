@@ -52,10 +52,10 @@
 - [x] Push to GitHub (commit `e84aa23`)
 
 ## Phase 7 — Accept/Reject Workflow
-- [ ] Responder receives dispatch via Supabase Realtime
-- [ ] Accept/Reject with timeout (30s window)
-- [ ] Auto-cascade to next responder on reject/expire
-- [ ] emergency.status = NO_RESPONDER → notify dispatcher
+- [x] Add automatic cascade-dispatching trigger when responder rejects or lets a request expire
+- [x] Update emergency status to `NO_RESPONDER` in SQL if all candidate units decline
+- [x] Create `sweep_expired_dispatches` routine to catch offline responders and time out requests after 35s
+- [x] Push to GitHub (commit `d32de53`)
 
 ## Phase 8 — Responder GPS Tracking
 - [ ] Location stream (3–5s interval when EN_ROUTE)
