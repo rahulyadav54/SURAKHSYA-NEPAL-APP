@@ -95,8 +95,11 @@
 - [x] Push to GitHub (commit `6321c29`)
 
 ## Phase 14 — Emergency Timeline + Analytics
-- [ ] Timeline widget from emergency_events table
-- [ ] Analytics dashboard (response times, severity breakdown)
+- [x] Implement real-time `emergencyEventsStreamProvider` listening to `emergency_events` table modifications
+- [x] Add interactive expandable history timeline bottom sheet to citizen tracking screens
+- [x] Create `adminChartStatsProvider` calculating incident types distribution (SOS, Ambulance, Fire, Police) from database
+- [x] Connect Admin Dashboard LineChart and BarChart visualization to real-time database stats
+- [x] Push to GitHub (commit `06c4fb4`)
 
 ## Phase 15 — Testing + Security + Error Handling
 - [ ] Full RLS audit
