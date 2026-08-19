@@ -89,9 +89,10 @@
 - [x] Push to GitHub (commit `0550a3a`)
 
 ## Phase 13 — Push Notifications
-- [ ] FCM trigger on dispatch_created (responder)
-- [ ] FCM trigger on emergency status changes (citizen)
-- [ ] FCM trigger on no_responder (dispatcher)
+- [x] Write SQL migration script `database/migrations/005_push_notifications.sql` to add notification hooks and automatic triggers on dispatch assignments and status changes
+- [x] Create `NotificationController` in `lib/features/emergency/presentation/controllers/notification_controller.dart` to request app permissions, upload FCM tokens, and listen to real-time events
+- [x] Bind custom SnackBars to display notifications to active users in the foreground
+- [x] Push to GitHub (commit `6321c29`)
 
 ## Phase 14 — Emergency Timeline + Analytics
 - [ ] Timeline widget from emergency_events table
