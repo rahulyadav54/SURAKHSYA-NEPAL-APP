@@ -4,6 +4,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/network/supabase_providers.dart';
 import '../../../../core/services/location_service.dart';
+import '../../../../core/config/demo_mode.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../domain/entities/emergency_event.dart';
 import '../../domain/repositories/emergency_repository.dart';
@@ -65,10 +66,13 @@ class EmergencyController extends StateNotifier<EmergencyTriggerState> {
       // 1. Fetch current GPS location coordinates
       final position = await _locationService.getCurrentLocation();
       
+      final isDemoActive = _ref.read(demoModeProvider);
+
       // 2. Write emergency alert row to Supabase
       await _repository.triggerSosAlert(
         latitude: position.latitude,
         longitude: position.longitude,
+        isDemo: isDemoActive,
       );
 
       state = const EmergencyTriggerSuccess();
@@ -129,11 +133,15 @@ class EmergencyController extends StateNotifier<EmergencyTriggerState> {
         }
       }
 
+      final isDemoActive = _ref.read(demoModeProvider);
+      final finalDesc = isDemoActive ? '[DEMO] $description' : description;
+      final finalType = isDemoActive ? '[DEMO] $emergencyType' : emergencyType;
+
       final requestId = await _repository.createEmergencyRequest(
         serviceType: serviceType,
-        emergencyType: emergencyType,
+        emergencyType: finalType,
         severity: severity,
-        description: description,
+        description: finalDesc,
         latitude: position.latitude,
         longitude: position.longitude,
         address: resolvedAddress,

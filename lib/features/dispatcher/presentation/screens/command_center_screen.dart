@@ -16,6 +16,7 @@ class CommandCenterScreen extends ConsumerStatefulWidget {
 }
 
 class _CommandCenterScreenState extends ConsumerState<CommandCenterScreen> {
+  bool _showDemoAlerts = true;
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +149,13 @@ class _CommandCenterScreenState extends ConsumerState<CommandCenterScreen> {
     List<Map<String, dynamic>> emergencies,
     List<Map<String, dynamic>> responders,
   ) {
+    final filteredEmergencies = emergencies.where((e) {
+      final isDemo = (e['emergency_type'] as String? ?? '').contains('[DEMO]') ||
+                     (e['description'] as String? ?? '').contains('[DEMO]');
+      if (!_showDemoAlerts && isDemo) return false;
+      return true;
+    }).toList();
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -164,15 +172,34 @@ class _CommandCenterScreenState extends ConsumerState<CommandCenterScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${emergencies.length} Active',
+                  '${filteredEmergencies.length} Active',
                   style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Show Demo Alerts', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              SizedBox(
+                height: 24,
+                child: Switch(
+                  value: _showDemoAlerts,
+                  activeColor: Colors.amber.shade700,
+                  onChanged: (val) {
+                    setState(() {
+                      _showDemoAlerts = val;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 16),
           Expanded(
-            child: emergencies.isEmpty
+            child: filteredEmergencies.isEmpty
                 ? const Center(
                     child: Text(
                       'No active emergency calls',
@@ -180,9 +207,9 @@ class _CommandCenterScreenState extends ConsumerState<CommandCenterScreen> {
                     ),
                   )
                 : ListView.builder(
-                    itemCount: emergencies.length,
+                    itemCount: filteredEmergencies.length,
                     itemBuilder: (context, index) {
-                      final req = emergencies[index];
+                      final req = filteredEmergencies[index];
                       final id = req['id'] as String;
                       final type = req['emergency_type'] as String? ?? 'Emergency Incident';
                       final address = req['address'] as String? ?? 'Coordinates: ${req['latitude']}, ${req['longitude']}';
@@ -366,6 +393,10 @@ class _CommandCenterScreenState extends ConsumerState<CommandCenterScreen> {
 
     // 1. Add emergency requests markers (Red)
     for (var req in emergencies) {
+      final isDemo = (req['emergency_type'] as String? ?? '').contains('[DEMO]') ||
+                     (req['description'] as String? ?? '').contains('[DEMO]');
+      if (!_showDemoAlerts && isDemo) continue;
+
       final double? lat = req['latitude'] as double?;
       final double? lng = req['longitude'] as double?;
       if (lat != null && lng != null) {

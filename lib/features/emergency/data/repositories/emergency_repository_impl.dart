@@ -17,7 +17,7 @@ class EmergencyRepositoryImpl implements EmergencyRepository {
   EmergencyRepositoryImpl(this._firestore, this._firebaseAuth);
 
   @override
-  Future<void> triggerSosAlert({required double latitude, required double longitude}) async {
+  Future<void> triggerSosAlert({required double latitude, required double longitude, bool isDemo = false}) async {
     final userId = _firebaseAuth.currentUser?.uid ?? 'anonymous';
     final docRef = _firestore.collection('emergencies').doc();
     final model = EmergencyModel(
@@ -45,7 +45,9 @@ class EmergencyRepositoryImpl implements EmergencyRepository {
         'status': 'ACTIVE',
         'latitude': latitude,
         'longitude': longitude,
-        'description': 'Pulsating SOS button triggered by citizen',
+        'description': isDemo
+            ? '[DEMO] Pulsating SOS button triggered by citizen'
+            : 'Pulsating SOS button triggered by citizen',
       }).timeout(const Duration(seconds: 3));
     } catch (_) {
       // Offline fallback

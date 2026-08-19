@@ -2,7 +2,7 @@ import '../../../auth/domain/entities/user_role.dart';
 import '../entities/emergency_event.dart';
 
 abstract class EmergencyRepository {
-  Future<void> triggerSosAlert({required double latitude, required double longitude});
+  Future<void> triggerSosAlert({required double latitude, required double longitude, bool isDemo = false});
   Future<List<EmergencyEvent>> fetchEmergencyHistory();
   
   Future<String> createEmergencyRequest({

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/cache_service.dart';
+import '../../../../core/config/demo_mode.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 
 class EmergencyContact {
@@ -369,6 +370,35 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                 MediaQuery.platformBrightnessOf(context) == Brightness.dark),
                         onChanged: (val) {
                           ref.read(themeModeProvider.notifier).toggleTheme();
+                        },
+                      ),
+                      const Divider(height: 16),
+                      // Demo Environment Mode
+                      SwitchListTile(
+                        title: const Text(
+                          'Demo Environment Mode',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        subtitle: const Text(
+                          'Isolate test operations from production database',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        secondary: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: Colors.amber.shade50, shape: BoxShape.circle),
+                          child: Icon(Icons.science_outlined, color: Colors.amber.shade700, size: 20),
+                        ),
+                        value: ref.watch(demoModeProvider),
+                        onChanged: (val) {
+                          ref.read(demoModeProvider.notifier).toggle(val);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(val 
+                                  ? 'Demo Mode Activated. Test incidents are isolated.' 
+                                  : 'Production Mode Activated. Operations are live.'),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
                         },
                       ),
                     ],
