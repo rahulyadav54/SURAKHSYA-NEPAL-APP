@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/otp_verification_screen.dart';
@@ -27,7 +28,10 @@ import '../../features/responder/presentation/screens/responder_pending_screen.d
 import '../../features/dispatcher/presentation/screens/command_center_screen.dart';
 import '../../features/hospital/presentation/screens/hospital_dashboard_screen.dart';
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouter = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
     GoRoute(

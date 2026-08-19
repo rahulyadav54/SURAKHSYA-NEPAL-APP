@@ -8,6 +8,7 @@ import 'core/router/app_router.dart';
 import 'core/services/firebase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/cache_service.dart';
+import 'features/emergency/presentation/controllers/notification_controller.dart';
 
 
 void main() async {
@@ -88,6 +89,7 @@ class _SurakshaNepalAppState extends ConsumerState<SurakshaNepalApp> {
     super.initState();
     // Bootstrap Firebase FCM messaging event handlers
     ref.read(firebaseServiceProvider).setupNotificationListeners();
+    ref.read(notificationControllerProvider); // Boostrap notification sync
   }
 
   @override
