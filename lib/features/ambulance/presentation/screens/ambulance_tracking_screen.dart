@@ -325,9 +325,122 @@ class _AmbulanceTrackingScreenState extends ConsumerState<AmbulanceTrackingScree
                 ],
               ),
             ],
+            const Divider(height: 24),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.history_toggle_off_rounded),
+              label: const Text('VIEW INCIDENT TIMELINE'),
+              onPressed: () => _showTimelineBottomSheet(context, widget.requestId),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ],
         ),
       ),
     ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.1, end: 0);
+  }
+
+  void _showTimelineBottomSheet(BuildContext context, String requestId) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Consumer(
+          builder: (context, ref, child) {
+            final eventsAsync = ref.watch(emergencyEventsStreamProvider(requestId));
+            return eventsAsync.when(
+              data: (list) {
+                if (list.isEmpty) {
+                  return const Center(child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Text('No timeline events yet.'),
+                  ));
+                }
+                return Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Incident History Timeline',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: list.length,
+                          itemBuilder: (context, index) {
+                            final event = list[index];
+                            final title = event['event_type'] as String? ?? 'EVENT';
+                            final desc = event['description'] as String? ?? '';
+                            final timeStr = event['created_at'] as String? ?? '';
+                            DateTime? time = DateTime.tryParse(timeStr);
+                            final formattedTime = time != null
+                                ? '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'
+                                : '';
+
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Column(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 6,
+                                      backgroundColor: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    if (index < list.length - 1)
+                                      Container(
+                                        width: 2,
+                                        height: 40,
+                                        color: Colors.grey.shade300,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            title,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          ),
+                                          Text(
+                                            formattedTime,
+                                            style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        desc,
+                                        style: const TextStyle(color: Colors.black87, fontSize: 12),
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(child: Text('Error: $err')),
+            );
+          },
+        );
+      },
+    );
   }
 }

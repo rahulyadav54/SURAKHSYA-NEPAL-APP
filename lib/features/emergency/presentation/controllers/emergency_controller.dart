@@ -263,3 +263,48 @@ final responderLocationStreamProvider = StreamProvider.family.autoDispose<Map<St
   return controller.stream;
 });
 
+/// StreamProvider that listens to emergency timeline events in real-time
+final emergencyEventsStreamProvider = StreamProvider.family.autoDispose<List<Map<String, dynamic>>, String>((ref, requestId) {
+  final supabase = ref.watch(supabaseClientProvider);
+  final controller = StreamController<List<Map<String, dynamic>>>();
+
+  Future<void> fetchLatest() async {
+    try {
+      final data = await supabase
+          .from('emergency_events')
+          .select()
+          .eq('emergency_id', requestId)
+          .order('created_at', ascending: true);
+      if (!controller.isClosed) {
+        controller.add(List<Map<String, dynamic>>.from(data));
+      }
+    } catch (_) {}
+  }
+
+  final subscription = supabase
+      .channel('public:emergency_events:$requestId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'emergency_events',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'emergency_id',
+          value: requestId,
+        ),
+        callback: (payload) {
+          fetchLatest();
+        },
+      )
+      .subscribe();
+
+  fetchLatest();
+
+  ref.onDispose(() {
+    subscription.unsubscribe();
+    controller.close();
+  });
+
+  return controller.stream;
+});
+

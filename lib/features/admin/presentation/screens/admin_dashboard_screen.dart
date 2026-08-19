@@ -970,6 +970,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Widget _buildAnalyticsTab(BuildContext context) {
     final theme = Theme.of(context);
     final predictionAsync = ref.watch(adminAnalyticsPredictionProvider);
+    final stats = ref.watch(adminChartStatsProvider);
 
     final LatLng ktmCenter = const LatLng(27.7172, 85.3240);
     final Set<Circle> circles = {
@@ -1057,12 +1058,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               lineBarsData: [
                                 LineChartBarData(
                                   spots: [
-                                    const FlSpot(0, 5),
-                                    const FlSpot(1, 8),
-                                    const FlSpot(2, 4),
-                                    const FlSpot(3, 12),
-                                    const FlSpot(4, 7),
-                                    const FlSpot(5, 15),
+                                    FlSpot(0, stats.sosCount.toDouble()),
+                                    FlSpot(1, stats.ambulanceCount.toDouble()),
+                                    FlSpot(2, stats.fireCount.toDouble()),
+                                    FlSpot(3, stats.policeCount.toDouble()),
+                                    FlSpot(4, (stats.sosCount + stats.ambulanceCount).toDouble()),
+                                    FlSpot(5, (stats.sosCount + stats.ambulanceCount + stats.fireCount + stats.policeCount).toDouble()),
                                   ],
                                   isCurved: true,
                                   color: theme.colorScheme.primary,
@@ -1102,10 +1103,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                               titlesData: const FlTitlesData(show: false),
                               borderData: FlBorderData(show: false),
                               barGroups: [
-                                BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: 12, color: Colors.blue, width: 14)]),
-                                BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: 8, color: Colors.red, width: 14)]),
-                                BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: 5, color: Colors.orange, width: 14)]),
-                                BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: 15, color: Colors.teal, width: 14)]),
+                                BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: stats.sosCount.toDouble(), color: Colors.red, width: 14)]),
+                                BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: stats.ambulanceCount.toDouble(), color: Colors.blue, width: 14)]),
+                                BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: stats.fireCount.toDouble(), color: Colors.orange, width: 14)]),
+                                BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: stats.policeCount.toDouble(), color: Colors.teal, width: 14)]),
                               ],
                             ),
                           ),

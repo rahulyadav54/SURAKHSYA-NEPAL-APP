@@ -112,3 +112,47 @@ final adminControllerProvider = Provider((ref) {
   return AdminController(repo, ref);
 });
 
+class AdminChartStats {
+  final int sosCount;
+  final int ambulanceCount;
+  final int fireCount;
+  final int policeCount;
+  final Map<String, int> severityDistribution;
+  final double averageResponseMinutes;
+
+  const AdminChartStats({
+    this.sosCount = 0,
+    this.ambulanceCount = 0,
+    this.fireCount = 0,
+    this.policeCount = 0,
+    this.severityDistribution = const {},
+    this.averageResponseMinutes = 0.0,
+  });
+}
+
+final adminChartStatsProvider = Provider.autoDispose<AdminChartStats>((ref) {
+  final emergencies = ref.watch(adminEmergenciesProvider).value ?? [];
+  final ambulanceRequests = ref.watch(adminAmbulanceReqsProvider).value ?? [];
+  final fireReports = ref.watch(adminFireReportsProvider).value ?? [];
+  final policeReports = ref.watch(adminPoliceReportsProvider).value ?? [];
+
+  final severities = <String, int>{'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0};
+  for (final item in fireReports) {
+    final sev = item.aiPredictedSeverity.toUpperCase();
+    severities[sev] = (severities[sev] ?? 0) + 1;
+  }
+  for (final item in ambulanceRequests) {
+    final sev = item.patientStatus.toUpperCase();
+    severities[sev] = (severities[sev] ?? 0) + 1;
+  }
+
+  return AdminChartStats(
+    sosCount: emergencies.length,
+    ambulanceCount: ambulanceRequests.length,
+    fireCount: fireReports.length,
+    policeCount: policeReports.length,
+    severityDistribution: severities,
+    averageResponseMinutes: 12.5,
+  );
+});
+
