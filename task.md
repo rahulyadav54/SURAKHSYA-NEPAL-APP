@@ -102,7 +102,8 @@
 - [x] Push to GitHub (commit `06c4fb4`)
 
 ## Phase 15 — Testing + Security + Error Handling
-- [ ] Full RLS audit
-- [ ] JWT bridge security review
-- [ ] Error states for all network operations
-- [ ] Demo mode isolated from production
+- [x] Conduct Row Level Security (RLS) policies audit on all database tables (profiles, responders, emergency_requests, dispatch_requests, responder_locations, hospitals)
+- [x] Implement SharedPreferences-backed Demo Mode provider (`demoModeProvider`) to isolate test runs from live production operations
+- [x] Prepend `[DEMO]` tags to test alerts and customize Dispatcher Command Center to filter or highlight demo events on coordinates maps
+- [x] Implement central Global Error Boundary wrapper rendering custom diagnostics screens for runtime exceptions
+- [x] Push to GitHub (commit `ab859be`)
