@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/loading_widget.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../controllers/hospital_controller.dart';
 
 class HospitalDashboardScreen extends ConsumerStatefulWidget {
   const HospitalDashboardScreen({super.key});
@@ -13,22 +15,32 @@ class HospitalDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _HospitalDashboardScreenState extends ConsumerState<HospitalDashboardScreen> {
-  bool _erAvailable = true;
-  int _availableBeds = 14;
-  int _icuBeds = 4;
-  String _bloodStatus = 'AVAILABLE';
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hospitalState = ref.watch(hospitalControllerProvider);
+    final hospital = hospitalState.hospital;
+
+    if (hospitalState.isLoading) {
+      return const Scaffold(
+        body: Center(child: SurakshaLoading(size: 60)),
+      );
+    }
+
+    final String name = hospital?['name'] as String? ?? 'Tribhuvan Teaching Hospital';
+    final bool erAvailable = hospital?['emergency_available'] as bool? ?? true;
+    final int availableBeds = hospital?['available_beds'] as int? ?? 10;
+    final int icuBeds = hospital?['icu_beds'] as int? ?? 2;
+    final String bloodStatus = hospital?['blood_available'] as String? ?? 'AVAILABLE';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tribhuvan Teaching Hospital', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Text('Hospital Emergency Portal', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text('Hospital Emergency Portal', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
           ],
         ),
         actions: [
@@ -88,13 +100,13 @@ class _HospitalDashboardScreenState extends ConsumerState<HospitalDashboardScree
                         children: [
                           const Text('Emergency Room Status:', style: TextStyle(fontWeight: FontWeight.w600)),
                           ChoiceChip(
-                            label: Text(_erAvailable ? 'AVAILABLE' : 'FULL / BUSY'),
-                            selected: _erAvailable,
+                            label: Text(erAvailable ? 'AVAILABLE' : 'FULL / BUSY'),
+                            selected: erAvailable,
                             selectedColor: Colors.green.shade100,
                             onSelected: (selected) {
-                              setState(() {
-                                _erAvailable = selected;
-                              });
+                              ref.read(hospitalControllerProvider.notifier).updateCapacity(
+                                erAvailable: selected,
+                              );
                             },
                           ),
                         ],
@@ -106,19 +118,25 @@ class _HospitalDashboardScreenState extends ConsumerState<HospitalDashboardScree
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('General Beds Available', style: TextStyle(color: Colors.black87, fontSize: 13)),
-                              Text('$_availableBeds Beds', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                              const Text('General Beds Available', style: TextStyle(color: Colors.black87, fontSize: 13)),
+                              Text('$availableBeds Beds', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                             ],
                           ),
                           Row(
                             children: [
                               IconButton.outlined(
                                 icon: const Icon(Icons.remove),
-                                onPressed: _availableBeds > 0 ? () => setState(() => _availableBeds--) : null,
+                                onPressed: availableBeds > 0
+                                    ? () => ref.read(hospitalControllerProvider.notifier).updateCapacity(
+                                          availableBeds: availableBeds - 1,
+                                        )
+                                    : null,
                               ),
                               IconButton.outlined(
                                 icon: const Icon(Icons.add),
-                                onPressed: () => setState(() => _availableBeds++),
+                                onPressed: () => ref.read(hospitalControllerProvider.notifier).updateCapacity(
+                                      availableBeds: availableBeds + 1,
+                                    ),
                               ),
                             ],
                           ),
@@ -131,20 +149,48 @@ class _HospitalDashboardScreenState extends ConsumerState<HospitalDashboardScree
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('ICU Beds Available', style: TextStyle(color: Colors.black87, fontSize: 13)),
-                              Text('$_icuBeds ICU Beds', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
+                              const Text('ICU Beds Available', style: TextStyle(color: Colors.black87, fontSize: 13)),
+                              Text('$icuBeds ICU Beds', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red)),
                             ],
                           ),
                           Row(
                             children: [
                               IconButton.outlined(
                                 icon: const Icon(Icons.remove),
-                                onPressed: _icuBeds > 0 ? () => setState(() => _icuBeds--) : null,
+                                onPressed: icuBeds > 0
+                                    ? () => ref.read(hospitalControllerProvider.notifier).updateCapacity(
+                                          icuBeds: icuBeds - 1,
+                                        )
+                                    : null,
                               ),
                               IconButton.outlined(
                                 icon: const Icon(Icons.add),
-                                onPressed: () => setState(() => _icuBeds++),
+                                onPressed: () => ref.read(hospitalControllerProvider.notifier).updateCapacity(
+                                      icuBeds: icuBeds + 1,
+                                    ),
                               ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Blood Bank Status:', style: TextStyle(fontWeight: FontWeight.w600)),
+                          DropdownButton<String>(
+                            value: bloodStatus,
+                            onChanged: (val) {
+                              if (val != null) {
+                                ref.read(hospitalControllerProvider.notifier).updateCapacity(
+                                  bloodAvailable: val,
+                                );
+                              }
+                            },
+                            items: const [
+                              DropdownMenuItem(value: 'AVAILABLE', child: Text('AVAILABLE (प्रशस्त छ)')),
+                              DropdownMenuItem(value: 'LOW', child: Text('LOW STATUS (न्यून छ)')),
+                              DropdownMenuItem(value: 'UNAVAILABLE', child: Text('UNAVAILABLE (सकिएको छ)')),
                             ],
                           ),
                         ],
@@ -163,61 +209,118 @@ class _HospitalDashboardScreenState extends ConsumerState<HospitalDashboardScree
               ),
               const SizedBox(height: 12),
 
-              Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.red.shade300),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.airport_shuttle_rounded, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('NP-AMB-102', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            ],
+              hospitalState.incomingAmbulances.isEmpty
+                  ? Card(
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: const Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Center(
+                          child: Text(
+                            'No active incoming emergency patient transfers',
+                            style: TextStyle(color: Colors.grey),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(8)),
-                            child: const Text('ETA 7 MINS', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
-                          ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text('Patient: Road Traffic Injury', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      const SizedBox(height: 4),
-                      Text('Severity: CRITICAL | Blood Needed: O+ve', style: TextStyle(color: Colors.black87, fontSize: 13)),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () {},
-                              child: const Text('ACCEPT PATIENT'),
+                    )
+                  : Column(
+                      children: hospitalState.incomingAmbulances.map((req) {
+                        final id = req['id'] as String;
+                        final responders = req['responders'] as Map<String, dynamic>?;
+                        final profile = responders?['profiles'] as Map<String, dynamic>?;
+                        final vehicle = responders?['vehicles'] as Map<String, dynamic>?;
+                        final description = req['description'] as String? ?? 'Emergency Incident';
+                        final severity = req['severity'] as String? ?? 'HIGH';
+                        final status = req['status'] as String? ?? 'ACCEPTED';
+
+                        Color borderColors = Colors.orange.shade300;
+                        if (severity.toUpperCase() == 'CRITICAL') {
+                          borderColors = Colors.red.shade400;
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Card(
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: borderColors, width: 1.5),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.airport_shuttle_rounded, color: Colors.red),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            vehicle?['vehicle_number'] as String? ?? 'AMBULANCE',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(8)),
+                                        child: Text(
+                                          status == 'ARRIVED' ? 'ARRIVED ON SITE' : 'EN ROUTE',
+                                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Patient Case: $description',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Severity: $severity | Dispatch Driver: ${profile?['full_name'] ?? 'Responder'}',
+                                    style: const TextStyle(color: Colors.black87, fontSize: 13),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      if (status != 'ARRIVED')
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed: () {
+                                              ref.read(hospitalControllerProvider.notifier).updateEmergencyStatus(
+                                                id,
+                                                'ARRIVED',
+                                              );
+                                            },
+                                            child: const Text('PREPARE ER'),
+                                          ),
+                                        ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () {
+                                            ref.read(hospitalControllerProvider.notifier).updateEmergencyStatus(
+                                              id,
+                                              'COMPLETED',
+                                            );
+                                          },
+                                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                                          child: const Text('ADMIT PATIENT', style: TextStyle(color: Colors.white)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                              child: const Text('PREPARE ER', style: TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+                        );
+                      }).toList(),
+                    ),
             ],
           ),
         ),

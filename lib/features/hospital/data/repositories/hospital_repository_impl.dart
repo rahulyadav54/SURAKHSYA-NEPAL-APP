@@ -1,26 +1,40 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/network/firebase_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/network/supabase_providers.dart';
 import '../../domain/entities/hospital.dart';
 import '../../domain/repositories/hospital_repository.dart';
-import '../models/hospital_model.dart';
 
 class HospitalRepositoryImpl implements HospitalRepository {
-  final FirebaseFirestore _firestore;
+  final SupabaseClient _supabase;
 
-  HospitalRepositoryImpl(this._firestore);
+  HospitalRepositoryImpl(this._supabase);
 
   @override
   Future<List<Hospital>> fetchHospitals() async {
-    final query = await _firestore.collection('hospitals').get();
-    final hospitals = query.docs
-        .map((doc) => HospitalModel.fromJson(doc.data()))
-        .toList();
-
-    if (hospitals.isEmpty) {
+    try {
+      final list = await _supabase.from('hospitals').select();
+      if (list.isEmpty) {
+        return _getMockHospitals();
+      }
+      return list.map((json) {
+        return Hospital(
+          id: json['id'] as String,
+          name: json['name'] as String,
+          latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+          longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+          phone: json['phone'] as String? ?? '',
+          address: json['address'] as String? ?? '',
+          emergencyBedsAvailable: json['available_beds'] as int? ?? 0,
+          emergencyBedsTotal: (json['available_beds'] as int? ?? 0) + 15,
+          specialists: 'General Medicine, Surgery, Emergency',
+          bloodStock: {
+            'Status': json['blood_available'] as String? ?? 'AVAILABLE',
+          },
+        );
+      }).toList();
+    } catch (_) {
       return _getMockHospitals();
     }
-    return hospitals;
   }
 
   List<Hospital> _getMockHospitals() {
@@ -78,6 +92,11 @@ class HospitalRepositoryImpl implements HospitalRepository {
 }
 
 final hospitalRepositoryProvider = Provider<HospitalRepository>((ref) {
-  final firestore = ref.watch(firestoreProvider);
-  return HospitalRepositoryImpl(firestore);
+  final supabase = ref.watch(supabaseClientProvider);
+  return HospitalRepositoryImpl(supabase);
+});
+
+final hospitalsListProvider = FutureProvider.autoDispose<List<Hospital>>((ref) async {
+  final repository = ref.watch(hospitalRepositoryProvider);
+  return repository.fetchHospitals();
 });

@@ -7,7 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../../core/widgets/error_widget.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../../../emergency/presentation/controllers/emergency_controller.dart';
-import '../controllers/hospital_controller.dart';
+import '../../data/repositories/hospital_repository_impl.dart';
 
 class HospitalListScreen extends ConsumerStatefulWidget {
   const HospitalListScreen({super.key});
