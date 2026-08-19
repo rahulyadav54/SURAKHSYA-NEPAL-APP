@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geocoding/geocoding.dart';
 import '../../../../core/services/location_service.dart';
+import '../../../auth/domain/entities/user_role.dart';
 import '../../domain/entities/emergency_event.dart';
 import '../../domain/repositories/emergency_repository.dart';
 import '../../data/repositories/emergency_repository_impl.dart';
@@ -16,6 +18,8 @@ final emergencyHistoryProvider = FutureProvider.autoDispose<List<EmergencyEvent>
 });
 
 /// Emergency trigger state machine classes
+
+
 abstract class EmergencyTriggerState {
   const EmergencyTriggerState();
 }
@@ -75,9 +79,73 @@ class EmergencyController extends StateNotifier<EmergencyTriggerState> {
     }
   }
 
+  /// Submits a details emergency request with optional media attachments
+  Future<String?> submitCustomEmergency({
+    required ServiceType serviceType,
+    required String emergencyType,
+    required String severity,
+    required String description,
+    required String address,
+    String? localPhotoPath,
+    String? localVideoPath,
+  }) async {
+    state = const EmergencyTriggerLoading();
+    try {
+      final position = await _locationService.getCurrentLocation();
+      
+      String photoUrl = '';
+      String videoUrl = '';
+
+      if (localPhotoPath != null) {
+        final fileName = 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final uploaded = await _repository.uploadEmergencyMedia(localPhotoPath, fileName);
+        if (uploaded != null) photoUrl = uploaded;
+      }
+
+      if (localVideoPath != null) {
+        final fileName = 'video_${DateTime.now().millisecondsSinceEpoch}.mp4';
+        final uploaded = await _repository.uploadEmergencyMedia(localVideoPath, fileName);
+        if (uploaded != null) videoUrl = uploaded;
+      }
+
+      String resolvedAddress = address.trim();
+      if (resolvedAddress.isEmpty) {
+        try {
+          final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+          if (placemarks.isNotEmpty) {
+            final pm = placemarks.first;
+            resolvedAddress = '${pm.street ?? pm.name ?? ''}, ${pm.locality ?? pm.subAdministrativeArea ?? ''}, ${pm.country ?? 'Nepal'}';
+          }
+        } catch (_) {
+          resolvedAddress = 'Coordinates: (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
+        }
+      }
+
+      final requestId = await _repository.createEmergencyRequest(
+        serviceType: serviceType,
+        emergencyType: emergencyType,
+        severity: severity,
+        description: description,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        address: resolvedAddress,
+        photoUrl: photoUrl,
+        videoUrl: videoUrl,
+      );
+
+      state = const EmergencyTriggerSuccess();
+      _ref.invalidate(emergencyHistoryProvider);
+      return requestId;
+    } catch (e) {
+      state = EmergencyTriggerError(e.toString());
+      return null;
+    }
+  }
+
   void reset() {
     state = const EmergencyTriggerIdle();
   }
+
 }
 
 final emergencyControllerProvider = StateNotifierProvider<EmergencyController, EmergencyTriggerState>((ref) {

@@ -7,6 +7,9 @@ import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../controllers/police_controller.dart';
 
+import '../../../auth/domain/entities/user_role.dart';
+import '../../../emergency/presentation/controllers/emergency_controller.dart';
+
 class PoliceReportScreen extends ConsumerStatefulWidget {
   const PoliceReportScreen({super.key});
 
@@ -63,16 +66,20 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
       return;
     }
 
-    final reportId = await ref.read(policeControllerProvider.notifier).submitPoliceReport(
-      category: _selectedCategory!,
-      description: _descriptionController.text,
-      evidencePath: _evidenceFile?.path,
+    final reportId = await ref.read(emergencyControllerProvider.notifier).submitCustomEmergency(
+      serviceType: ServiceType.police,
+      emergencyType: _selectedCategory!,
+      severity: 'HIGH',
+      description: _descriptionController.text.trim(),
+      address: '',
+      localPhotoPath: _evidenceFile?.path,
     );
 
     if (reportId != null && mounted) {
       context.go('/police-tracking', extra: reportId);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

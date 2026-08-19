@@ -7,6 +7,9 @@ import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../controllers/fire_controller.dart';
 
+import '../../../auth/domain/entities/user_role.dart';
+import '../../../emergency/presentation/controllers/emergency_controller.dart';
+
 class FireReportScreen extends ConsumerStatefulWidget {
   const FireReportScreen({super.key});
 
@@ -98,17 +101,21 @@ class _FireReportScreenState extends ConsumerState<FireReportScreen> {
       await _runAiAnalysis();
     }
 
-    final reportId = await ref.read(fireControllerProvider.notifier).submitFireReport(
-      imagePath: _imageFile?.path,
-      videoPath: _videoFile?.path,
-      description: _descriptionController.text,
-      aiSeverity: _predictedSeverity ?? 'MEDIUM',
+    final reportId = await ref.read(emergencyControllerProvider.notifier).submitCustomEmergency(
+      serviceType: ServiceType.fireBrigade,
+      emergencyType: 'Fire Incident',
+      severity: _predictedSeverity ?? 'MEDIUM',
+      description: _descriptionController.text.trim(),
+      address: '',
+      localPhotoPath: _imageFile?.path,
+      localVideoPath: _videoFile?.path,
     );
 
     if (reportId != null && mounted) {
       context.go('/fire-tracking', extra: reportId);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

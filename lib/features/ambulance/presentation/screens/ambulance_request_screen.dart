@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../controllers/ambulance_controller.dart';
+import '../../../auth/domain/entities/user_role.dart';
+import '../../../emergency/presentation/controllers/emergency_controller.dart';
 
 class AmbulanceRequestScreen extends ConsumerStatefulWidget {
   const AmbulanceRequestScreen({super.key});
@@ -47,12 +49,19 @@ class _AmbulanceRequestScreenState extends ConsumerState<AmbulanceRequestScreen>
       return;
     }
 
-    final requestId = await ref.read(ambulanceControllerProvider.notifier).requestAmbulance(_selectedStatus!);
+    final requestId = await ref.read(emergencyControllerProvider.notifier).submitCustomEmergency(
+      serviceType: ServiceType.ambulance,
+      emergencyType: 'Ambulance Request',
+      severity: _selectedStatus!,
+      description: 'Requesting ambulance with status: $_selectedStatus',
+      address: '',
+    );
     
     if (requestId != null && mounted) {
       context.go('/ambulance-tracking', extra: requestId);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
