@@ -41,23 +41,6 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> signInWithOtp(String phone) async {
-    final normalized = phone.replaceAll(RegExp(r'[^0-9]'), '');
-    final last10 = normalized.length >= 10
-        ? normalized.substring(normalized.length - 10)
-        : normalized;
-    final isNepalMobile =
-        last10.length == 10 &&
-        (last10.startsWith('98') || last10.startsWith('97'));
-    final isExplicitTest =
-        normalized.contains('000000') ||
-        normalized.contains('12345678') ||
-        normalized.endsWith('9800000000');
-
-    if (isExplicitTest || isNepalMobile) {
-      _verificationId = 'mock_verification_id';
-      return;
-    }
-
     try {
       await _firebaseAuth.verifyPhoneNumber(
         phoneNumber: phone,
@@ -69,8 +52,16 @@ class AuthRepositoryImpl implements AuthRepository {
           if (msg.contains('BILLING_NOT_ENABLED') ||
               msg.contains(' billing ')) {
             throw Exception(
-              'Phone auth requires a Firebase billing-enabled project. '
-              'Use any Nepal mobile number for demo mode (OTP: 123456).',
+              'Phone authentication requires a Firebase project with billing enabled. '
+              'Please enable billing in your Firebase Console to use phone authentication.',
+            );
+          }
+          if (msg.contains('invalid-phone-number')) {
+            throw Exception('The phone number provided is not valid.');
+          }
+          if (msg.contains('quota')) {
+            throw Exception(
+              'SMS quota exceeded. Please try again later or contact support.',
             );
           }
           throw Exception(msg);
@@ -86,8 +77,16 @@ class AuthRepositoryImpl implements AuthRepository {
       final msg = e.message ?? 'Phone verification failed';
       if (msg.contains('BILLING_NOT_ENABLED') || msg.contains(' billing ')) {
         throw Exception(
-          'Phone auth requires a Firebase billing-enabled project. '
-          'Use any Nepal mobile number for demo mode (OTP: 123456).',
+          'Phone authentication requires a Firebase project with billing enabled. '
+          'Please enable billing in your Firebase Console to use phone authentication.',
+        );
+      }
+      if (msg.contains('invalid-phone-number')) {
+        throw Exception('The phone number provided is not valid.');
+      }
+      if (msg.contains('quota')) {
+        throw Exception(
+          'SMS quota exceeded. Please try again later or contact support.',
         );
       }
       throw Exception(msg);
@@ -102,51 +101,36 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     }
 
-    // Handle mock verification for demo/test numbers
-    if (_verificationId == 'mock_verification_id') {
-      // For demo mode, accept any 6-digit OTP code
-      if (token.length == 6) {
-        // Try to sign in with the mock credential first
-        try {
-          final credential = fb_auth.PhoneAuthProvider.credential(
-            verificationId: _verificationId!,
-            smsCode: token,
-          );
-          await _firebaseAuth.signInWithCredential(credential);
-        } on fb_auth.FirebaseAuthException catch (e) {
-          // If Firebase rejects the mock credential, fall back to anonymous sign-in
-          if (e.code == 'invalid-credential' ||
-              e.code == 'invalid-verification-code') {
-            await _signInWithMockPhone(phone, token);
-          } else {
-            rethrow;
-          }
-        }
-      } else {
-        throw Exception('Please enter a valid 6-digit OTP code.');
-      }
-      return;
-    }
-
-    // Real Firebase phone auth verification
     final credential = fb_auth.PhoneAuthProvider.credential(
       verificationId: _verificationId!,
       smsCode: token,
     );
-    await _firebaseAuth.signInWithCredential(credential);
+
+    try {
+      await _firebaseAuth.signInWithCredential(credential);
+    } on fb_auth.FirebaseAuthException catch (e) {
+      if (e.code == 'invalid-verification-code') {
+        throw Exception(
+          'The verification code entered is incorrect. Please check and try again.',
+        );
+      }
+      if (e.code == 'invalid-credential') {
+        throw Exception(
+          'The verification code has expired. Please request a new OTP.',
+        );
+      }
+      rethrow;
+    }
   }
 
-  /// Helper method to sign in with mock phone credentials for demo mode
-  Future<void> _signInWithMockPhone(String phone, String token) async {
-    // For demo mode, we use anonymous sign-in as a fallback
-    // The phone number is stored in the user profile
+  @override
+  Future<void> signInAnonymously() async {
     try {
       await _firebaseAuth.signInAnonymously();
     } on fb_auth.FirebaseAuthException catch (e) {
       if (e.code == 'operation-not-allowed') {
         throw Exception(
-          'Anonymous sign-in is not enabled. Please enable it in Firebase Console '
-          'or use a real phone number for authentication.',
+          'Anonymous sign-in is not enabled. Please enable it in Firebase Console.',
         );
       }
       rethrow;

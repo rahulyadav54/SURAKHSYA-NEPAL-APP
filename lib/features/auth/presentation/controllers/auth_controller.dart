@@ -111,8 +111,8 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthLoading();
     try {
       await _authRepository.signInWithOtp(phone);
-      // For mock/demo mode, we don't need to wait for auth state changes
-      // The verification ID is already set in the repository
+      // After requesting OTP, the verification ID is stored in the repository.
+      // The auth state listener will handle the transition once OTP is verified.
       state = const Unauthenticated();
       return true;
     } catch (e) {

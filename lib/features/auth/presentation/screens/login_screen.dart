@@ -256,7 +256,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 'assets/images/logo.png',
                 width: 104,
                 height: 104,
-                fit: BoxFit.contain, // contain keeps full logo visible
+                fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => const Icon(
                   Icons.security_rounded,
                   size: 52,
@@ -292,9 +292,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
               child: SizedBox(
-                // The phone form needs more than 210px on compact devices.
-                // Keeping the tab view tall enough prevents a RenderFlex overflow
-                // while the outer page remains safely scrollable.
                 height: 250,
                 child: TabBarView(
                   controller: _tabController,
@@ -559,15 +556,15 @@ class _PhoneTab extends StatelessWidget {
                 Icon(
                   Icons.info_outline_rounded,
                   size: 13,
-                  color: Colors.amber.shade800,
+                  color: Colors.blue.shade800,
                 ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    'Demo Mode: Any Nepal mobile number works. Use OTP 123456.',
+                    'A 6-digit OTP will be sent to your phone via SMS.',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.amber.shade800,
+                      color: Colors.blue.shade800,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
