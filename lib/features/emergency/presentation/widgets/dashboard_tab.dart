@@ -800,8 +800,32 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.airport_shuttle_rounded, color: Colors.green),
+              title: const Text('Responder Portal', style: TextStyle(fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/responder');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.monitor_heart_rounded, color: Colors.deepOrange),
+              title: const Text('Dispatcher Command Center', style: TextStyle(fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/command-center');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.local_hospital_rounded, color: Colors.teal),
+              title: const Text('Hospital Emergency Portal', style: TextStyle(fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/hospital-dashboard');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.admin_panel_settings_rounded, color: Colors.blue),
-              title: const Text('Admin Dispatch Portal', style: TextStyle(fontWeight: FontWeight.bold)),
+              title: const Text('Super Admin Portal', style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () {
                 Navigator.pop(context);
                 context.push('/admin');
@@ -948,7 +972,9 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.notifications_none_rounded, size: 26, color: Color(0xFF333333)),
-                          onPressed: () {},
+                          onPressed: () {
+                            context.push('/disaster-alerts');
+                          },
                         ),
                         Positioned(
                           right: 8,
@@ -1381,9 +1407,9 @@ class _DashboardTabState extends ConsumerState<DashboardTab> {
                               } else if (title == 'Live Tracking') {
                                 context.push('/live-map');
                               } else if (title == 'First Aid Guide') {
-                                ref.read(homeTabIndexProvider.notifier).state = 3;
+                                ref.read(homeTabIndexProvider.notifier).state = 2; // AI Assistant tab
                               } else if (title == 'Alerts') {
-                                ref.read(homeTabIndexProvider.notifier).state = 1;
+                                context.push('/disaster-alerts');
                               }
                             },
                             borderRadius: BorderRadius.circular(16),

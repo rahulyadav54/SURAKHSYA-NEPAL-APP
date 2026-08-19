@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/network/firebase_providers.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -95,29 +96,93 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<UserProfile?> getUserProfile(String uid) async {
-    final doc = await _firestore.collection('users').doc(uid).get();
-    if (!doc.exists || doc.data() == null) return null;
-    return UserProfileModel.fromJson(doc.data()!);
+    // 1. Try querying Supabase profiles table first
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('profiles')
+          .select()
+          .eq('firebase_uid', uid)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 4));
+      
+      if (response != null) {
+        return UserProfileModel.fromJson(response);
+      }
+    } catch (_) {
+      // Offline fallback
+    }
+
+    // 2. Fallback to Firestore if not found or Supabase connection issue
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (doc.exists && doc.data() != null) {
+        return UserProfileModel.fromJson(doc.data()!);
+      }
+    } catch (_) {}
+
+    return null;
   }
 
   @override
   Future<void> createUserProfile(UserProfile profile) async {
     final model = UserProfileModel.fromEntity(profile);
+
+    // 1. Persist to Supabase profiles table
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.from('profiles').upsert({
+        'firebase_uid': profile.id,
+        'full_name': profile.fullName,
+        'phone': profile.phone,
+        'email': profile.email,
+        'role': profile.role.value,
+        'blood_group': profile.bloodGroup,
+        'allergies': profile.allergies,
+        'medical_notes': profile.medicalNotes,
+        'emergency_contact_1': profile.emergencyContact1,
+        'emergency_contact_2': profile.emergencyContact2,
+        'profile_image': profile.profileImage,
+        'fcm_token': profile.fcmToken,
+      }).timeout(const Duration(seconds: 4));
+    } catch (_) {}
+
+    // 2. Persist to Firestore for offline fallback
     try {
       await _firestore
           .collection('users')
           .doc(profile.id)
           .set(model.toJson())
           .timeout(const Duration(seconds: 4));
-    } catch (_) {
-      // Fire-and-forget/offline write fallback to keep UI responsive
-    }
+    } catch (_) {}
   }
 
   @override
   Future<void> updateUserProfile(UserProfile profile) async {
     final model = UserProfileModel.fromEntity(profile);
-    await _firestore.collection('users').doc(profile.id).update(model.toJson());
+    
+    // 1. Update Supabase profiles table
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.from('profiles').update({
+        'full_name': profile.fullName,
+        'phone': profile.phone,
+        'email': profile.email,
+        'role': profile.role.value,
+        'blood_group': profile.bloodGroup,
+        'allergies': profile.allergies,
+        'medical_notes': profile.medicalNotes,
+        'emergency_contact_1': profile.emergencyContact1,
+        'emergency_contact_2': profile.emergencyContact2,
+        'profile_image': profile.profileImage,
+        'fcm_token': profile.fcmToken,
+      }).eq('firebase_uid', profile.id).timeout(const Duration(seconds: 4));
+    } catch (_) {}
+
+    // 2. Update Firestore fallback
+    try {
+      await _firestore.collection('users').doc(profile.id).update(model.toJson());
+    } catch (_) {}
   }
 }
 

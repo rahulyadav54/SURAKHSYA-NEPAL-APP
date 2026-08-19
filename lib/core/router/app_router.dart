@@ -19,6 +19,11 @@ import '../../features/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/emergency/presentation/screens/live_map_screen.dart';
 import '../../features/emergency/presentation/screens/disaster_alerts_screen.dart';
 import '../../features/emergency/presentation/screens/licenses_screen.dart';
+import '../../features/ai_assistant/presentation/screens/ai_chat_screen.dart';
+
+import '../../features/responder/presentation/screens/responder_dashboard_screen.dart';
+import '../../features/dispatcher/presentation/screens/command_center_screen.dart';
+import '../../features/hospital/presentation/screens/hospital_dashboard_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -49,6 +54,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) => const HomeShell(),
+    ),
+    GoRoute(
+      path: '/responder',
+      builder: (context, state) => const ResponderDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/command-center',
+      builder: (context, state) => const CommandCenterScreen(),
+    ),
+    GoRoute(
+      path: '/hospital-dashboard',
+      builder: (context, state) => const HospitalDashboardScreen(),
     ),
     GoRoute(
       path: '/emergency-history',
@@ -114,5 +131,10 @@ final appRouter = GoRouter(
       path: '/licenses',
       builder: (context, state) => const LicensesScreen(),
     ),
+    GoRoute(
+      path: '/ai-chat',
+      builder: (context, state) => const AiChatScreen(),
+    ),
   ],
 );
+

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/network/firebase_providers.dart';
 import '../../domain/entities/emergency_event.dart';
 import '../../domain/repositories/emergency_repository.dart';
@@ -25,7 +26,27 @@ class EmergencyRepositoryImpl implements EmergencyRepository {
       createdAt: DateTime.now(),
     );
 
-    await docRef.set(model.toJson());
+    try {
+      await docRef.set(model.toJson()).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Offline fallback
+    }
+
+    // Phase 3: Sync SOS dispatch event to Supabase emergency_events table
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.from('emergency_events').insert({
+        'id': docRef.id,
+        'user_id': userId,
+        'event_type': 'SOS',
+        'status': 'ACTIVE',
+        'latitude': latitude,
+        'longitude': longitude,
+        'description': 'Pulsating SOS button triggered by citizen',
+      }).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Offline fallback
+    }
   }
 
   @override

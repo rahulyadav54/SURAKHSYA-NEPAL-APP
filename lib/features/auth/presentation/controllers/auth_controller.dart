@@ -5,6 +5,7 @@ import '../../../../core/network/firebase_providers.dart';
 import '../../../../core/services/cache_service.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/user_profile.dart';
+import '../../domain/entities/user_role.dart';
 import '../../domain/repositories/auth_repository.dart';
 import 'auth_state.dart';
 
@@ -140,6 +141,8 @@ class AuthController extends StateNotifier<AuthState> {
     required String medicalNotes,
     required String emergencyContact1,
     required String emergencyContact2,
+    UserRole role = UserRole.citizen,
+    ServiceType? serviceType,
   }) async {
     final currentState = state;
     String userId = 'user_${DateTime.now().millisecondsSinceEpoch}';
@@ -164,6 +167,8 @@ class AuthController extends StateNotifier<AuthState> {
         medicalNotes: medicalNotes,
         emergencyContact1: emergencyContact1,
         emergencyContact2: emergencyContact2,
+        role: role,
+        serviceType: serviceType,
       );
 
       await _authRepository.createUserProfile(profile);
@@ -175,6 +180,21 @@ class AuthController extends StateNotifier<AuthState> {
       return false;
     }
   }
+
+  /// Switch user role for testing / portal access
+  Future<void> switchRole(UserRole newRole, {ServiceType? serviceType}) async {
+    final currentState = state;
+    if (currentState is Authenticated) {
+      final updatedProfile = currentState.profile.copyWith(
+        role: newRole,
+        serviceType: serviceType ?? currentState.profile.serviceType,
+      );
+      await _authRepository.updateUserProfile(updatedProfile);
+      await _cacheService.cacheProfile(updatedProfile);
+      state = Authenticated(updatedProfile);
+    }
+  }
+
 
   @override
   void dispose() {

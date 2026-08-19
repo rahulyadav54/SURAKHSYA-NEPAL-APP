@@ -5,6 +5,8 @@ import '../../../../core/widgets/custom_button.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/auth_state.dart';
 
+import '../../domain/entities/user_role.dart';
+
 class ProfileCreationScreen extends ConsumerStatefulWidget {
   const ProfileCreationScreen({super.key});
 
@@ -23,6 +25,8 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
   
   String? _selectedBloodGroup;
   final List<String> _bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  UserRole _selectedRole = UserRole.citizen;
+  ServiceType? _selectedServiceType;
 
   @override
   void dispose() {
@@ -46,12 +50,31 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
       medicalNotes: _notesController.text.trim(),
       emergencyContact1: _contact1Controller.text.trim(),
       emergencyContact2: _contact2Controller.text.trim(),
+      role: _selectedRole,
+      serviceType: _selectedServiceType,
     );
     
     if (success && mounted) {
-      context.go('/home');
+      switch (_selectedRole) {
+        case UserRole.citizen:
+          context.go('/home');
+          break;
+        case UserRole.responder:
+          context.go('/responder');
+          break;
+        case UserRole.dispatcher:
+          context.go('/command-center');
+          break;
+        case UserRole.hospital:
+          context.go('/hospital-dashboard');
+          break;
+        case UserRole.admin:
+          context.go('/admin');
+          break;
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +121,68 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                   ),
                 ),
                 
-                const SizedBox(height: 28),
+                // Account Role Section Title
+                Text(
+                  'System Role / Account Type',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                
+                DropdownButtonFormField<UserRole>(
+                  value: _selectedRole,
+                  decoration: InputDecoration(
+                    labelText: 'Select Your Account Role',
+                    prefixIcon: const Icon(Icons.badge_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: UserRole.values.map((role) {
+                    return DropdownMenuItem(
+                      value: role,
+                      child: Text(role.label),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedRole = val;
+                        if (val != UserRole.responder) {
+                          _selectedServiceType = null;
+                        } else {
+                          _selectedServiceType = ServiceType.ambulance;
+                        }
+                      });
+                    }
+                  },
+                ),
+
+                if (_selectedRole == UserRole.responder) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<ServiceType>(
+                    value: _selectedServiceType,
+                    decoration: InputDecoration(
+                      labelText: 'Emergency Response Service Type',
+                      prefixIcon: const Icon(Icons.minor_crash_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: ServiceType.values.map((service) {
+                      return DropdownMenuItem(
+                        value: service,
+                        child: Text(service.label),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedServiceType = val;
+                      });
+                    },
+                  ),
+                ],
+
+                const SizedBox(height: 24),
                 
                 // Form Section Title
                 Text(
@@ -106,6 +190,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
+
                 
                 // Full Name Input
                 TextFormField(

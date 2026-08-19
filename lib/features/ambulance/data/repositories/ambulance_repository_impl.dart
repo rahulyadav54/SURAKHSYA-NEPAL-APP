@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/network/firebase_providers.dart';
 import '../../domain/entities/ambulance.dart';
 import '../../domain/entities/ambulance_request.dart';
@@ -55,7 +56,28 @@ class AmbulanceRepositoryImpl implements AmbulanceRepository {
       status: 'pending',
     );
 
-    await docRef.set(model.toJson());
+    try {
+      await docRef.set(model.toJson()).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Offline fallback
+    }
+
+    // Phase 3: Sync to Supabase emergency_requests table
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.from('emergency_requests').insert({
+        'id': docRef.id,
+        'citizen_firebase_uid': userId,
+        'request_type': 'AMBULANCE',
+        'status': 'PENDING',
+        'patient_status': patientStatus,
+        'pickup_latitude': latitude,
+        'pickup_longitude': longitude,
+      }).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Offline fallback
+    }
+
     return docRef.id;
   }
 
