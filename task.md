@@ -47,9 +47,9 @@
 - [x] Push to GitHub (commit `8a7a409`)
 
 ## Phase 6 — Automatic Dispatch Engine
-- [ ] Supabase Edge Function: find_nearest_responders
-- [ ] Supabase Edge Function: dispatch_emergency
-- [ ] Dispatch request creation with distance + ETA ranking
+- [x] Write SQL migration script `database/migrations/002_dispatch_engine.sql` containing `find_nearest_responders`, `dispatch_emergency`, and automatic insert triggers
+- [x] Wire dynamic RPC calls in the client app repository `fetchNearbyResponders`
+- [x] Push to GitHub (commit `e84aa23`)
 
 ## Phase 7 — Accept/Reject Workflow
 - [ ] Responder receives dispatch via Supabase Realtime
