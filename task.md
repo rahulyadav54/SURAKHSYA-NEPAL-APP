@@ -76,9 +76,11 @@
 - [x] Push to GitHub (commit `784980c`)
 
 ## Phase 11 — Hospital Dashboard
-- [ ] Incoming ambulances list
-- [ ] ER / ICU / Beds capacity update
-- [ ] Blood availability toggle
+- [x] Write SQL migration script `database/migrations/004_hospital_route.sql` linking `emergency_requests` to `hospitals`
+- [x] Create `HospitalController` in `lib/features/hospital/presentation/controllers/hospital_controller.dart`
+- [x] Bind ER availability toggles, General Bed counters, ICU Bed counters, and Blood Bank status dropdown to Supabase updates
+- [x] Connect real-time incoming ambulance patient transfers and enable patient admissions or ER preparations
+- [x] Push to GitHub (commit `469824c`)
 
 ## Phase 12 — Police + Fire Brigade Workflows
 - [ ] Fire-specific fields (fire type, explosion risk, gas risk)
