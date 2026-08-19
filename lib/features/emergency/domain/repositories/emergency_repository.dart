@@ -16,6 +16,10 @@ abstract class EmergencyRepository {
     String photoUrl,
     String videoUrl,
     int peopleAffected,
+    String fireType,
+    String buildingType,
+    bool explosionRisk,
+    bool gasElectricalRisk,
   });
 
   Future<String?> uploadEmergencyMedia(String filePath, String fileName);

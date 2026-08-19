@@ -91,6 +91,11 @@ class EmergencyController extends StateNotifier<EmergencyTriggerState> {
     required String address,
     String? localPhotoPath,
     String? localVideoPath,
+    int peopleAffected = 1,
+    String fireType = '',
+    String buildingType = '',
+    bool explosionRisk = false,
+    bool gasElectricalRisk = false,
   }) async {
     state = const EmergencyTriggerLoading();
     try {
@@ -134,6 +139,11 @@ class EmergencyController extends StateNotifier<EmergencyTriggerState> {
         address: resolvedAddress,
         photoUrl: photoUrl,
         videoUrl: videoUrl,
+        peopleAffected: peopleAffected,
+        fireType: fireType,
+        buildingType: buildingType,
+        explosionRisk: explosionRisk,
+        gasElectricalRisk: gasElectricalRisk,
       );
 
       state = const EmergencyTriggerSuccess();

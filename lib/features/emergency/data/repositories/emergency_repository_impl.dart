@@ -79,6 +79,10 @@ class EmergencyRepositoryImpl implements EmergencyRepository {
     String photoUrl = '',
     String videoUrl = '',
     int peopleAffected = 1,
+    String fireType = '',
+    String buildingType = '',
+    bool explosionRisk = false,
+    bool gasElectricalRisk = false,
   }) async {
     final userId = _firebaseAuth.currentUser?.uid ?? 'anonymous';
     final supabase = Supabase.instance.client;
@@ -100,6 +104,10 @@ class EmergencyRepositoryImpl implements EmergencyRepository {
       'photo_url': photoUrl,
       'video_url': videoUrl,
       'people_affected': peopleAffected,
+      'fire_type': fireType,
+      'building_type': buildingType,
+      'explosion_risk': explosionRisk,
+      'gas_electrical_risk': gasElectricalRisk,
       'status': 'REQUESTED',
     }).select('id').single();
 

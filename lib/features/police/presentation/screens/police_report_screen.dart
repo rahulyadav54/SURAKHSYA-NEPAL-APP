@@ -23,6 +23,7 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
   
   String? _selectedCategory;
   XFile? _evidenceFile;
+  int _peopleAffected = 1;
 
   final List<Map<String, dynamic>> _categories = [
     {'status': 'Theft', 'labelNp': 'Theft / Robbery', 'icon': Icons.lock_open_rounded, 'color': Colors.red},
@@ -73,6 +74,7 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
       description: _descriptionController.text.trim(),
       address: '',
       localPhotoPath: _evidenceFile?.path,
+      peopleAffected: _peopleAffected,
     );
 
     if (reportId != null && mounted) {
@@ -179,6 +181,30 @@ class _PoliceReportScreenState extends ConsumerState<PoliceReportScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Number of People Involved:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      IconButton.outlined(
+                        icon: const Icon(Icons.remove),
+                        onPressed: _peopleAffected > 1 ? () => setState(() => _peopleAffected--) : null,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text('$_peopleAffected', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                      IconButton.outlined(
+                        icon: const Icon(Icons.add),
+                        onPressed: () => setState(() => _peopleAffected++),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
 

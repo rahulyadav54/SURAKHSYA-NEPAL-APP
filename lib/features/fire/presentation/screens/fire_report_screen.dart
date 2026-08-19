@@ -27,6 +27,11 @@ class _FireReportScreenState extends ConsumerState<FireReportScreen> {
   String? _predictedSeverity;
   String? _analysisReason;
 
+  String _fireType = 'HOUSE_FIRE';
+  String _buildingType = 'RESIDENTIAL';
+  bool _explosionRisk = false;
+  bool _gasElectricalRisk = false;
+
   @override
   void dispose() {
     _descriptionController.dispose();
@@ -109,6 +114,10 @@ class _FireReportScreenState extends ConsumerState<FireReportScreen> {
       address: '',
       localPhotoPath: _imageFile?.path,
       localVideoPath: _videoFile?.path,
+      fireType: _fireType,
+      buildingType: _buildingType,
+      explosionRisk: _explosionRisk,
+      gasElectricalRisk: _gasElectricalRisk,
     );
 
     if (reportId != null && mounted) {
@@ -163,6 +172,61 @@ class _FireReportScreenState extends ConsumerState<FireReportScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+
+              const Text('Fire Classification', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _fireType,
+                onChanged: (val) {
+                  if (val != null) setState(() => _fireType = val);
+                },
+                items: const [
+                  DropdownMenuItem(value: 'HOUSE_FIRE', child: Text('House / Building Fire')),
+                  DropdownMenuItem(value: 'FOREST_FIRE', child: Text('Forest / Wildfire')),
+                  DropdownMenuItem(value: 'ELECTRICAL_FIRE', child: Text('Electrical Short-circuit')),
+                  DropdownMenuItem(value: 'CHEMICAL_FIRE', child: Text('Chemical / Industrial Fire')),
+                  DropdownMenuItem(value: 'GAS_EXPLOSION', child: Text('Gas Cylinder Leak/Explosion')),
+                  DropdownMenuItem(value: 'OTHER', child: Text('Other Fire Hazard')),
+                ],
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              const Text('Structure / Property Type', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _buildingType,
+                onChanged: (val) {
+                  if (val != null) setState(() => _buildingType = val);
+                },
+                items: const [
+                  DropdownMenuItem(value: 'RESIDENTIAL', child: Text('Residential Home')),
+                  DropdownMenuItem(value: 'COMMERCIAL', child: Text('Commercial Office / Shop')),
+                  DropdownMenuItem(value: 'INDUSTRIAL', child: Text('Factory / Warehouse')),
+                  DropdownMenuItem(value: 'WILDLAND', child: Text('Forest / Open Land')),
+                  DropdownMenuItem(value: 'VEHICLE', child: Text('Car / Public Transit')),
+                ],
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              SwitchListTile(
+                title: const Text('High Explosion Risk', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Are there gas cylinders or chemicals nearby?'),
+                value: _explosionRisk,
+                onChanged: (val) => setState(() => _explosionRisk = val),
+              ),
+              SwitchListTile(
+                title: const Text('Gas or Electrical Risk', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Are live wires or fuel pipe lines active?'),
+                value: _gasElectricalRisk,
+                onChanged: (val) => setState(() => _gasElectricalRisk = val),
               ),
               const SizedBox(height: 24),
 
