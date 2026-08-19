@@ -41,10 +41,10 @@
 - [x] Push to GitHub (commit `4335c73`)
 
 ## Phase 5 — Emergency Request System
-- [ ] Emergency confirmation screen (Ambulance/Police/Fire)
-- [ ] Photo/video attachment
-- [ ] Create emergency_requests row via Supabase
-- [ ] Emergency event timeline append
+- [x] Upgrade EmergencyRepository interface and EmergencyRepositoryImpl with `createEmergencyRequest` and `uploadEmergencyMedia` signatures
+- [x] Connect `AmbulanceRequestScreen`, `FireReportScreen`, and `PoliceReportScreen` with custom media upload support and geolocated Supabase table row submissions
+- [x] Append emergency event timeline records instantly upon user requests submissions
+- [x] Push to GitHub (commit `8a7a409`)
 
 ## Phase 6 — Automatic Dispatch Engine
 - [ ] Supabase Edge Function: find_nearest_responders
