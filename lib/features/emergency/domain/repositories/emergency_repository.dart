@@ -19,5 +19,13 @@ abstract class EmergencyRepository {
   });
 
   Future<String?> uploadEmergencyMedia(String filePath, String fileName);
+
+  Future<List<Map<String, dynamic>>> fetchNearbyResponders({
+    required double latitude,
+    required double longitude,
+    required ServiceType serviceType,
+    int limit,
+  });
 }
+
 

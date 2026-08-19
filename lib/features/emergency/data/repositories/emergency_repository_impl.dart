@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/network/firebase_providers.dart';
@@ -138,6 +139,28 @@ class EmergencyRepositoryImpl implements EmergencyRepository {
       return publicUrl;
     } catch (_) {
       return null;
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchNearbyResponders({
+    required double latitude,
+    required double longitude,
+    required ServiceType serviceType,
+    int limit = 5,
+  }) async {
+    final supabase = Supabase.instance.client;
+    try {
+      final response = await supabase.rpc('find_nearest_responders', params: {
+        'emergency_lat': latitude,
+        'emergency_lon': longitude,
+        'service_type_val': serviceType.value,
+        'limit_val': limit,
+      });
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      debugPrint('Error finding nearest responders: $e');
+      return [];
     }
   }
 }
