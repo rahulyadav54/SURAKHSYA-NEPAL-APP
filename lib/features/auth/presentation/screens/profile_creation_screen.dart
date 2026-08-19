@@ -60,7 +60,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
           context.go('/home');
           break;
         case UserRole.responder:
-          context.go('/responder');
+          context.go('/responder-register');
           break;
         case UserRole.dispatcher:
           context.go('/command-center');

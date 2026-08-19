@@ -22,6 +22,8 @@ import '../../features/emergency/presentation/screens/licenses_screen.dart';
 import '../../features/ai_assistant/presentation/screens/ai_chat_screen.dart';
 
 import '../../features/responder/presentation/screens/responder_dashboard_screen.dart';
+import '../../features/responder/presentation/screens/responder_registration_screen.dart';
+import '../../features/responder/presentation/screens/responder_pending_screen.dart';
 import '../../features/dispatcher/presentation/screens/command_center_screen.dart';
 import '../../features/hospital/presentation/screens/hospital_dashboard_screen.dart';
 
@@ -60,9 +62,18 @@ final appRouter = GoRouter(
       builder: (context, state) => const ResponderDashboardScreen(),
     ),
     GoRoute(
+      path: '/responder-register',
+      builder: (context, state) => const ResponderRegistrationScreen(),
+    ),
+    GoRoute(
+      path: '/responder-pending',
+      builder: (context, state) => const ResponderPendingScreen(),
+    ),
+    GoRoute(
       path: '/command-center',
       builder: (context, state) => const CommandCenterScreen(),
     ),
+
     GoRoute(
       path: '/hospital-dashboard',
       builder: (context, state) => const HospitalDashboardScreen(),

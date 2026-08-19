@@ -10,6 +10,8 @@ import '../../domain/repositories/admin_repository.dart';
 import '../../data/repositories/admin_repository_impl.dart';
 import '../../../ai_assistant/presentation/controllers/ai_chat_controller.dart';
 
+import '../../../responder/data/repositories/responder_repository.dart';
+
 /// FutureProviders to load the administrator details lists
 final adminProfilesProvider = FutureProvider.autoDispose<List<UserProfile>>((ref) async {
   return ref.watch(adminRepositoryProvider).fetchProfiles();
@@ -37,6 +39,10 @@ final adminHospitalsProvider = FutureProvider.autoDispose<List<Hospital>>((ref) 
 
 final adminAmbulancesProvider = FutureProvider.autoDispose<List<Ambulance>>((ref) async {
   return ref.watch(adminRepositoryProvider).fetchAmbulances();
+});
+
+final adminRespondersProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  return ref.watch(responderRepositoryProvider).fetchAllResponders();
 });
 
 /// AI forecasting trend predictor provider inside Admin Module
@@ -94,9 +100,15 @@ class AdminController {
     await _repository.updateAmbulanceStatus(id: id, status: status);
     _ref.invalidate(adminAmbulancesProvider);
   }
+
+  Future<void> verifyResponder(String id, String status) async {
+    await _ref.read(responderRepositoryProvider).verifyResponder(id, status);
+    _ref.invalidate(adminRespondersProvider);
+  }
 }
 
 final adminControllerProvider = Provider((ref) {
   final repo = ref.watch(adminRepositoryProvider);
   return AdminController(repo, ref);
 });
+

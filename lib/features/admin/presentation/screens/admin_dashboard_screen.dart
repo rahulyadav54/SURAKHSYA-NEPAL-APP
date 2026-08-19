@@ -784,53 +784,186 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   Widget _buildRespondersTab(BuildContext context) {
     final theme = Theme.of(context);
-    final respondersAsync = ref.watch(adminAmbulancesProvider);
+    final respondersAsync = ref.watch(adminRespondersProvider);
     final controller = ref.read(adminControllerProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Emergency Responders Status',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Responder Management & Verification',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () {
+                ref.invalidate(adminRespondersProvider);
+              },
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         Expanded(
           child: respondersAsync.when(
             data: (list) {
-              return ListView.builder(
-                itemCount: list.length,
-                itemBuilder: (context, index) {
-                  final a = list[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      title: Text(a.driverName),
-                      subtitle: Text('Plate: ${a.licensePlate} | Phone: ${a.phone}'),
-                      trailing: DropdownButton<String>(
-                        value: a.status,
-                        items: ['AVAILABLE', 'BUSY', 'OFFLINE'].map((status) {
-                          return DropdownMenuItem(
-                            value: status,
-                            child: Text(status),
-                          );
-                        }).toList(),
-                        onChanged: (newStatus) {
-                          if (newStatus != null) {
-                            controller.updateAmbulanceStatus(a.id, newStatus);
-                          }
-                        },
-                      ),
+              final pending = list.where((r) => r['verification_status'] == 'PENDING').toList();
+              final verified = list.where((r) => r['verification_status'] == 'APPROVED').toList();
+
+              return ListView(
+                children: [
+                  if (pending.isNotEmpty) ...[
+                    Text(
+                      'Pending Verifications (${pending.length})',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.orange.shade800),
                     ),
-                  );
-                },
+                    const SizedBox(height: 8),
+                    ...pending.map((r) => _buildPendingResponderCard(context, r, controller)),
+                    const SizedBox(height: 24),
+                  ],
+                  Text(
+                    'Active Responders (${verified.length})',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                  ),
+                  const SizedBox(height: 8),
+                  if (verified.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: Center(
+                        child: Text('No verified responders online currently.', style: TextStyle(color: Colors.black54)),
+                      ),
+                    )
+                  else
+                    ...verified.map((r) => _buildVerifiedResponderCard(context, r, controller)),
+                ],
               );
             },
-            loading: () => const SurakshaLoading(size: 40),
-            error: (err, _) => SurakshaErrorWidget(message: err.toString(), onRetry: () => ref.invalidate(adminAmbulancesProvider)),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Failed to load responders: $err', style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => ref.invalidate(adminRespondersProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPendingResponderCard(BuildContext context, Map<String, dynamic> responder, AdminController controller) {
+    final profile = responder['profiles'] as Map<String, dynamic>?;
+    final vehicle = responder['vehicles'] as Map<String, dynamic>?;
+    final id = responder['id'] as String;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.orange.shade300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${responder['service_type'] ?? 'Emergency responder'}'.toUpperCase(),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 12),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(6)),
+                  child: const Text('PENDING APPROVAL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              profile?['full_name'] ?? 'Guest Responder',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Text('Official ID: ${responder['employee_id'] ?? 'N/A'} | Phone: ${profile?['phone'] ?? 'N/A'}'),
+            const SizedBox(height: 8),
+            Text(
+              'Vehicle: ${vehicle?['vehicle_type'] ?? 'N/A'} (${vehicle?['vehicle_number'] ?? 'N/A'})',
+              style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: () => controller.verifyResponder(id, 'REJECTED'),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    foregroundColor: Colors.red,
+                  ),
+                  child: const Text('Reject'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => controller.verifyResponder(id, 'APPROVED'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Approve & Verify'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerifiedResponderCard(BuildContext context, Map<String, dynamic> responder, AdminController controller) {
+    final profile = responder['profiles'] as Map<String, dynamic>?;
+    final vehicle = responder['vehicles'] as Map<String, dynamic>?;
+
+    final availability = responder['availability_status'] ?? 'OFFLINE';
+    final availColor = availability == 'AVAILABLE' ? Colors.green : (availability == 'BUSY' ? Colors.orange : Colors.grey);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.green.shade50,
+          child: const Icon(Icons.check_circle_rounded, color: Colors.green),
+        ),
+        title: Text(profile?['full_name'] ?? 'Verified Responder', style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('ID: ${responder['employee_id'] ?? 'N/A'} | Category: ${responder['service_type'] ?? 'N/A'}'),
+            Text('Vehicle: ${vehicle?['vehicle_type'] ?? 'N/A'} (${vehicle?['vehicle_number'] ?? 'N/A'})'),
+          ],
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: availColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '$availability',
+            style: TextStyle(color: availColor, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ),
+      ),
     );
   }
 
