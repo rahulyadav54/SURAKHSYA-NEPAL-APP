@@ -70,10 +70,10 @@
 - [x] Push to GitHub (commit `495f30f`)
 
 ## Phase 10 — Command Center (Flutter Web)
-- [ ] Three-column layout: Emergencies | Live Map | Resources
-- [ ] Realtime emergency list
-- [ ] Responder markers on map
-- [ ] Manual dispatch override
+- [x] Build `DispatcherController` under `lib/features/dispatcher/presentation/controllers/dispatcher_controller.dart`
+- [x] Bind real-time list feeds, PostGIS responder locations, and connected hospitals summary
+- [x] Implement dynamic manual dispatcher overrides sorting available crews by geolocator distance
+- [x] Push to GitHub (commit `784980c`)
 
 ## Phase 11 — Hospital Dashboard
 - [ ] Incoming ambulances list
