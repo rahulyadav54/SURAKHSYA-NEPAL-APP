@@ -12,7 +12,7 @@
 - [x] Run SQL migration in Supabase SQL Editor
 
 ## Phase 2 — Authentication + Role-Based Routing
-- [x] Create `UserRole` & `ServiceType` domain entities (`lib/features/auth/domain/entities/user_role.dart`)
+- [x] Create UserRole & ServiceType domain entities (`lib/features/auth/domain/entities/user_role.dart`)
 - [x] Update `UserProfile` entity & `UserProfileModel` with `role` and `service_type` parsing
 - [x] Sync `profiles` table in Supabase (`getUserProfile`, `createUserProfile`, `updateUserProfile`)
 - [x] Create Responder Dashboard screen (`lib/features/responder/presentation/screens/responder_dashboard_screen.dart`)
@@ -64,10 +64,10 @@
 - [x] Push to GitHub (commit `c87bb98`)
 
 ## Phase 9 — Citizen Live Tracking
-- [ ] Live map screen with citizen + responder markers
-- [ ] Supabase Realtime subscription to responder_locations
-- [ ] ETA countdown
-- [ ] ARRIVED state update
+- [x] Implement unified real-time tracking provider `emergencyRequestStreamProvider` in `emergency_controller.dart`
+- [x] Wire live database coordinates sync to Google Maps markers for Ambulance, Fire, and Police tracking screens
+- [x] Calculate dynamic physical distance (km) and estimated minutes arrival (ETA) using Geolocator
+- [x] Push to GitHub (commit `495f30f`)
 
 ## Phase 10 — Command Center (Flutter Web)
 - [ ] Three-column layout: Emergencies | Live Map | Resources
